@@ -1,0 +1,63 @@
+# Nothing in here is source. Most of it is either generated, or holds
+# credentials, or is a 6 MB binary that git will never diff usefully.
+
+# ---- credentials and live state -------------------------------------------
+# monitor.sqlite3 holds app_user (scrypt salt + hash for every account) and
+# app_session (live session tokens). It is the one file in this project that
+# must never reach a remote.
+data/*.sqlite3
+data/*.sqlite3-shm
+data/*.sqlite3-wal
+deploy/data/*.sqlite3
+deploy/data/*.sqlite3-shm
+deploy/data/*.sqlite3-wal
+deploy/data/intel.json
+
+# Vercel's own guidance: do not commit this. It carries the project and org id.
+.vercel/
+deploy/.vercel/
+
+.env
+.env.*
+*.pem
+*.key
+service-account*.json
+credentials.json
+application_default_credentials.json
+
+# ---- generated output -----------------------------------------------------
+# Every one of these is rebuilt by a command in the repository, so committing
+# them means committing a stale copy that will disagree with the code.
+reports/
+data/screenshots/
+source_register.html
+Clara_Cost*.docx
+Clara_Sources*.docx
+Clara_Monitor_Handbook*.docx
+
+# ---- runtime noise --------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+*.log
+_serve.log
+nohup.out
+
+# Word lock files, created whenever a .docx is open
+~$*
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# A personal document that happens to live in this folder. Not project source.
+*HP Laptop*.docx
+Clara_Website_Analysis_Agent_Product_Requirements.docx
+Competitor_Intelligence_Requirements_Addendum.docx
+Clara_Centric_Autonomous_Competitor_Intelligence_Agent_Requirements.docx
