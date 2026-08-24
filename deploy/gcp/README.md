@@ -9,7 +9,14 @@ serverless host did — ephemeral, independent instances with Postgres
 
 Continuous deployment is `.github/workflows/deploy-gcp.yml`: **every push to
 `main` or `gcp-deploy` rebuilds the image with Cloud Build and rolls the Cloud
-Run service**. What follows is the one-time setup that workflow needs.
+Run service**. For what is currently live and how to operate it day to day,
+see [GCP_DEPLOYMENT.md](../../GCP_DEPLOYMENT.md) at the repository root.
+
+What follows is the one-time setup the workflow needs. **This was completed on
+2026-08-24 for project `clara-warehouse`** (bucket
+`clara-warehouse-monitor-bundle`, deployer SA `github-deployer@`, GitHub
+secret/variables set) — it is kept both as the record of what was provisioned
+and as the recipe for standing the service up in another project.
 
 ## 1. Project and APIs
 
