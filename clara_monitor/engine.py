@@ -25,12 +25,7 @@ from decimal import Decimal
 from . import competitors as comp
 from .access import guarded_get, host_allowed, reset_pauses
 from .config import DB_PATH, RunConfig
-# `candidates`, not `discovery`. A `discovery/` package for trend-source
-# discovery was added later and shadowed the `discovery.py` module this
-# imports from — a package always wins — so `DiscoveryChain` became
-# unreachable and every monitoring run died on this line. The module is
-# renamed for what it does: conditional candidate discovery (§8).
-from .candidates import DiscoveryChain
+from .discovery import DiscoveryChain
 from .extract import (
     ACCEPTED, ACCEPTED_WITH_WARNINGS, REJECTED, browser_required, extract,
 )

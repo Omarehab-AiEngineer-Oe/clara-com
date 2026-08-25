@@ -28,7 +28,7 @@ from __future__ import annotations
 import html
 import json
 
-from . import scope, ui, trend_sources as ts
+from . import trend_sources as ts
 from .site import CSS
 
 STAGE_LABEL = {
@@ -128,17 +128,6 @@ EXTRA_CSS = """
         cursor:pointer;font-family:inherit;text-decoration:underline}
 
 /* ---------- grid ---------- */
-/* The frame band, on the card. A subject that is a commercial lens rather
-   than a product family reads differently and has to look different, or the
-   grid implies "pricing moves" and "hair dryers" are the same kind of thing. */
-.band{font-size:9.5px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.05em;border-radius:3px;padding:1px 5px;white-space:nowrap}
-.band-family{background:var(--clara-wash);color:var(--clara);
-  border:1px solid var(--clara)}
-.band-lens{background:var(--card2);color:var(--ink3);border:1px solid var(--line2)}
-.band-out{background:transparent;color:var(--ink4);border:1px dashed var(--line2)}
-.tcard[data-band="out"]{opacity:.72}
-.tcard[data-band="out"]:hover{opacity:1}
 .tgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-top:18px}
 @media (max-width:1240px){.tgrid{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:900px){.tgrid{grid-template-columns:repeat(2,1fr)}}
@@ -258,10 +247,10 @@ EXTRA_CSS = """
 .bigunit{font-size:15px;color:var(--ink3)}
 .conflabel{font-size:12px;color:var(--ink3);line-height:1.5;max-width:44ch}
 .sctable{width:100%;border-collapse:collapse;font-size:12.5px}
-.sctable th{text-align:start;font-size:11px;color:var(--ink3);font-weight:600;
+.sctable th{text-align:left;font-size:11px;color:var(--ink3);font-weight:600;
             padding:7px 9px;background:var(--card2)}
 .sctable td{padding:7px 9px;border-bottom:1px solid var(--line)}
-.sctable td.num{text-align:end;font-variant-numeric:tabular-nums;
+.sctable td.num{text-align:right;font-variant-numeric:tabular-nums;
                 white-space:nowrap}
 .sctable tr.unmeasured td{color:var(--ink4)}
 .minibar{height:5px;border-radius:3px;background:var(--card3);min-width:70px}
@@ -288,7 +277,7 @@ EXTRA_CSS = """
 .rrow:first-of-type{border-top:0}
 .rrow:hover .rname{color:var(--clara)}
 .rscore{font-variant-numeric:tabular-nums;font-weight:700;font-size:15px;
-        color:var(--clara);text-align:end}
+        color:var(--clara);text-align:right}
 .rname{font-weight:600;color:var(--ink)}
 .rwhy{font-size:11.5px;color:var(--ink3);line-height:1.5;margin-top:2px}
 .rmeta{font-size:11px;color:var(--ink4);white-space:nowrap}
@@ -533,25 +522,6 @@ def _controls(b: dict) -> str:
     P.append('<div class="searchbox"><label for="f-q">Search</label>'
              '<input id="f-q" type="search" autocomplete="off" '
              'placeholder="title, tag, publisher or market…"></div>')
-    # The frame filter comes first because it is the coarsest cut and the one
-    # that answers "is this about a Clara product at all?".
-    per_band: dict = {}
-    for t in topics:
-        band = scope.topic_frame(t.get("key") or "", t.get("label") or "",
-                                 t.get("pattern") or "",
-                                 t.get("clara_relevance") or "")["band"]
-        per_band[band] = per_band.get(band, 0) + 1
-    P.append('<div class="fgroup"><span class="flabel">Frame</span>'
-             '<div class="fchips" id="f-band">')
-    P.append('<button class="chip on" data-all="1">All</button>')
-    for band in ("family", "lens", "out"):
-        if per_band.get(band):
-            P.append(f'<button class="chip" data-band="{_e(band)}" '
-                     f'title="{_e(BAND_BLURB[band])}">'
-                     f'{_e(BAND_CHIP[band])}<span class="n">'
-                     f'{per_band[band]}</span></button>')
-    P.append('</div></div>')
-
     P.append('<div class="fgroup"><span class="flabel">Category</span>'
              '<div class="fchips" id="f-cat">')
     P.append('<button class="chip on" data-all="1">All</button>')
@@ -604,22 +574,6 @@ def _controls(b: dict) -> str:
     return "\n".join(P)
 
 
-BAND_LABEL = {"family": "in frame", "lens": "lens", "out": "out of frame"}
-BAND_CHIP = {"family": "In frame", "lens": "Lens", "out": "Out of frame"}
-BAND_BLURB = {
-    "family": "One of the four product families — a subject about something "
-              "Clara sells.",
-    "lens": "A commercial pattern that applies to the four families rather "
-            "than being one of them: pricing, dupes, retail, audience. In "
-            "frame when read against a product, and nothing to act on without "
-            "one.",
-    "out": "About beauty, or about hair, and not about anything Clara sells. "
-           "Kept and labelled rather than deleted, so the gap between what was "
-           "collected and what is in frame stays visible.",
-}
-BAND_ORDER = {"family": 0, "lens": 1, "out": 2}
-
-
 def _card(i: int, t: dict, has_decision: bool = False) -> str:
     """A card carries only what can be scanned. Depth lives in the popup."""
     haystack = " ".join([
@@ -630,26 +584,15 @@ def _card(i: int, t: dict, has_decision: bool = False) -> str:
         " ".join(t.get("market_labels") or []),
     ]).lower()
 
-    fr = scope.topic_frame(t.get("key") or "", t.get("label") or "",
-                           t.get("pattern") or "",
-                           t.get("clara_relevance") or "")
-    haystack += " " + (fr["reason"] or "").lower()
-
     P = ['<button class="tcard" data-i="%d" data-key="%s" data-stage="%s" '
-         'data-cat="%s" data-markets="%s" data-bucket="%s" data-band="%s" '
-         'data-fam="%s" data-q="%s" aria-haspopup="dialog">'
+         'data-cat="%s" data-markets="%s" data-bucket="%s" data-q="%s" '
+         'aria-haspopup="dialog">'
          % (i, _e(t.get("key")), _e(t.get("stage")), _e(t.get("category")),
             _e(",".join(t.get("markets") or [])), _e(t.get("bucket")),
-            _e(fr["band"]), _e(fr["family"]), _e(haystack))]
+            _e(haystack))]
 
     P.append('<div class="ctop">')
     P.append(f'<span class="cicon" aria-hidden="true">{_e(t.get("icon"))}</span>')
-    # The band is named on every card, including the ones outside the frame.
-    # Hiding those would leave the trends page quietly smaller than the corpus
-    # it was built from, and a reader unable to tell a subject that was refused
-    # from one that was never collected.
-    P.append(f'<span class="band band-{_e(fr["band"])}" title="{_e(fr["reason"])}">'
-             f'{_e(BAND_LABEL[fr["band"]])}</span>')
     P.append(f'<span class="pill st-{_e(t.get("stage"))}">'
              f'{_e(STAGE_LABEL.get(t.get("stage"), t.get("stage")))}</span>')
     if t.get("badge"):
@@ -692,29 +635,9 @@ def _cards(b: dict, decisions: list | None = None) -> str:
     dec_keys = {d.get("topic_key") for d in (decisions or []) if d.get("topic_key")}
 
     P = ['<section id="trends"><div class="wrap">']
-    # Counted by family so the strip says how much of this page is actually
-    # about a Clara product. On the trends page that number is usually small,
-    # and it should be visible rather than discovered.
-    fam_counts = {}
-    for t in topics:
-        fr = scope.topic_frame(t.get("key") or "", t.get("label") or "",
-                               t.get("pattern") or "",
-                               t.get("clara_relevance") or "")
-        if fr["band"] == "family":
-            fam_counts[fr["family"]] = fam_counts.get(fr["family"], 0) + 1
-    P.append(ui.frame_strip(counts=fam_counts))
     P.append(_controls(b))
     P.append('<div class="tgrid" id="tgrid">')
-    # Families first, then lenses, then the rest. The index passed to `_card` is
-    # the position in the ORIGINAL list, because that is what the popup payload
-    # is keyed on — reordering the cards must not reorder the data behind them.
-    ordered = sorted(
-        enumerate(topics),
-        key=lambda it: BAND_ORDER[scope.topic_frame(
-            it[1].get("key") or "", it[1].get("label") or "",
-            it[1].get("pattern") or "",
-            it[1].get("clara_relevance") or "")["band"]])
-    for i, t in ordered:
+    for i, t in enumerate(topics):
         P.append(_card(i, t, t.get("key") in dec_keys))
 
     if uncat:
@@ -1266,8 +1189,7 @@ MODAL_JS = r"""
   var qbox = document.getElementById('f-q');
   var PAGE = DATA.page_size || 12;
   var limit = PAGE;
-  var state = {market:null, stage:null, recent:null, cat:null,
-               band:null, q:''};
+  var state = {market:null, stage:null, recent:null, cat:null, q:''};
 
   function matches(c){
     if(state.market){
@@ -1276,7 +1198,6 @@ MODAL_JS = r"""
     }
     if(state.stage && c.getAttribute('data-stage') !== state.stage) return false;
     if(state.cat && c.getAttribute('data-cat') !== state.cat) return false;
-    if(state.band && c.getAttribute('data-band') !== state.band) return false;
     if(state.recent){
       var allowed = state.recent === 'today'
         ? ['last_hour','today'] : ['last_hour','today','this_week'];
@@ -1319,7 +1240,7 @@ MODAL_JS = r"""
     });
   }
   wire('f-market','market'); wire('f-stage','stage');
-  wire('f-recent','recent'); wire('f-cat','cat'); wire('f-band','band');
+  wire('f-recent','recent'); wire('f-cat','cat');
 
   if(qbox){
     var timer = null;
@@ -1336,8 +1257,7 @@ MODAL_JS = r"""
 
   var reset = document.getElementById('f-reset');
   if(reset) reset.addEventListener('click', function(){
-    state = {market:null, stage:null, recent:null, cat:null,
-             band:null, q:''};
+    state = {market:null, stage:null, recent:null, cat:null, q:''};
     if(qbox) qbox.value = '';
     ['f-market','f-stage','f-recent','f-cat'].forEach(function(id){
       var box = document.getElementById(id);

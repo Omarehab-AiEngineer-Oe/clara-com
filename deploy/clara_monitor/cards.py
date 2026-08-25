@@ -16,7 +16,6 @@ import html
 import json
 from decimal import Decimal
 
-from . import scope, ui
 from .models import AMBIGUOUS, BLOCKED, CONFIRMED, NO_MATCH, PROBABLE
 from .money import to_decimal
 
@@ -37,35 +36,12 @@ STATUS_AR = {CONFIRMED: "confirmed", PROBABLE: "probable",
              "unassigned": "no competitor assigned"}
 
 CARD_CSS = """
-/* ---------- family sections ----------
-   The page is read family by family, so each one gets a heading with its own
-   count. `.fam-empty` is set by the filter rather than by the server: a heading
-   left standing over nothing reads as a section that failed to load. */
-.fam{margin:26px 0 0}
-.fam-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
-  padding:0 0 9px;border-bottom:1px solid var(--line);margin-bottom:14px}
-.fam-h h2{margin:0;font-size:17px;font-weight:680;letter-spacing:-.01em}
-.fam-h .en{font-size:12.5px;color:var(--ink3)}
-.fam-h .n{font-size:11.5px;font-weight:650;color:var(--ink3);
-  background:var(--card2);border:1px solid var(--line2);border-radius:999px;
-  padding:1px 8px;font-variant-numeric:tabular-nums}
-.fam-h .sc{flex:1 1 100%;font-size:12px;color:var(--ink4);line-height:1.5}
-.fam-empty{display:none}
-.fam-note{font-size:12.5px;color:var(--ink3);line-height:1.6;
-  background:var(--card2);border:1px solid var(--line2);border-radius:7px;
-  padding:11px 13px;margin:14px 0 0}
-
 /* ---------- card grid ---------- */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));
       gap:14px;margin-top:18px}
-/* A link, not a button: pressing a product opens its page, which holds
-   everything the popup used to and the market and content sections besides.
-   `text-decoration:none` and the inherited colour are what keep an <a> looking
-   like the card it is rather than a blue underlined block. */
 .pcard{background:var(--card);border:1px solid var(--line);border-radius:5px;
        box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;
-       gap:10px;cursor:pointer;text-align:start;font:inherit;color:inherit;
-       text-decoration:none;
+       gap:10px;cursor:pointer;text-align:left;font:inherit;color:inherit;
        transition:border-color .12s, transform .12s}
 .pcard:hover{border-color:var(--clara)}
 .pcard:hover .pc-name{color:var(--clara)}
@@ -129,21 +105,21 @@ CARD_CSS = """
 .kvgrid .k{font-family:var(--mono);font-size:9px;letter-spacing:.1em;
            text-transform:uppercase;color:var(--ink3)}
 .kvgrid .v{font-family:var(--mono);font-size:13px;margin-top:4px;overflow-wrap:anywhere}
-.mblock{background:var(--card);border:1px solid var(--line);border-inline-start:3px solid var(--rival);
+.mblock{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--rival);
         border-radius:3px;padding:15px 17px}
-.mblock.blocked{border-inline-start-color:var(--bad)}
-.mblock.ambiguous{border-inline-start-color:var(--amb)}
-.mblock.confirmed_match{border-inline-start-color:var(--ok)}
-.mblock.no_match{border-inline-start-color:var(--no)}
+.mblock.blocked{border-left-color:var(--bad)}
+.mblock.ambiguous{border-left-color:var(--amb)}
+.mblock.confirmed_match{border-left-color:var(--ok)}
+.mblock.no_match{border-left-color:var(--no)}
 .mblock h4{font-size:15px;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
 .mblock h4 a{font-weight:400;font-size:13px}
 .mb-sub{font-family:var(--mono);font-size:10.5px;color:var(--ink3);margin-top:5px}
-.mlist{margin:9px 0 0;padding-inline-start:17px;font-size:12.5px;color:var(--ink2)}
+.mlist{margin:9px 0 0;padding-left:17px;font-size:12.5px;color:var(--ink2)}
 .mlist li{margin:2px 0}
 .mtag{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
       color:var(--ink3);margin-top:12px;display:block}
 .vtable{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
-.vtable th,.vtable td{padding:5px 8px;text-align:start;border-bottom:1px solid var(--line)}
+.vtable th,.vtable td{padding:5px 8px;text-align:left;border-bottom:1px solid var(--line)}
 .vtable th{font-family:var(--mono);font-size:9px;letter-spacing:.08em;
            text-transform:uppercase;color:var(--ink3);font-weight:400}
 .imgstrip{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
@@ -159,38 +135,158 @@ CARD_CSS = """
 
 CARD_JS = r"""
 (function(){
-  // The modal that used to live here is gone. A product card is a link to its
-  // own page now, and that page carries everything the modal did plus the
-  // market and content sections — so there is one place to look rather than a
-  // popup holding half the answer and a link holding the other half. Dropping
-  // it also drops the embedded product payload the modal needed, which was the
-  // single largest thing on this page.
+  var DATA = window.__CLARA__ || {products:[]};
   var grid = document.getElementById('pgrid');
+  var mask = document.getElementById('mask');
+  var sheet = document.getElementById('sheet');
   var seg = document.getElementById('f-seg'), st = document.getElementById('f-status'),
       q = document.getElementById('f-q'), cnt = document.getElementById('f-count');
-  if(!grid || !seg || !st || !q) return;
+  if(!grid) return;
+
+  var SEG = {device:'devices', haircare:'haircare', accessory:'accessories',
+             unknown:'unclassified'};
+  var FMT = {multi_styler:'multi-styler', dryer:'dryer', air_brush:'air brush',
+             hot_brush:'hot brush', auto_curler:'auto curler',
+             straightener:'straightener', straightener_brush:'straightener + brush',
+             hair_styling_device:'styling device', unknown:'unclassified'};
+  var STOCK = {in_stock:'in stock', out_of_stock:'out of stock',
+               preorder:'pre-order', unknown:'not published',
+               not_published:'not published'};
+  var SPEC = {power_w:'power (W)', heat_settings:'heat settings', ionic:'ionic',
+              attachment_count:'attachments', voltage:'voltage',
+              auto_off_min:'auto shut-off (min)', bldc_motor:'BLDC motor',
+              cold_shot:'cold shot', temperatures_c:'temperatures (°C)'};
+  var STAT = {confirmed_match:'confirmed', probable_match:'probable',
+              ambiguous:'needs a decision', no_match:'no counterpart',
+              blocked:'site unavailable', invalidated:'no longer valid',
+              unassigned:'no competitor assigned', stale:'stale reading'};
+
+  function esc(v){
+    if(v===null||v===undefined||v==='') return '<span class="np">&mdash;</span>';
+    if(v==='not_published') return '<span class="np">not published</span>';
+    return String(v).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function money(a, cur){
+    if(a===null||a===undefined||a==='') return '<span class="np">unresolved</span>';
+    var n = Number(a); if(isNaN(n)) return esc(a);
+    var s = n.toLocaleString('en-US',{minimumFractionDigits:0, maximumFractionDigits:2});
+    return esc((cur? cur+' ':'')+s);
+  }
+  function pill(s){ return '<span class="pill s-'+esc(s)+'">'+esc(STAT[s]||s)+'</span>'; }
+  function kv(k,v){ return '<div><div class="k">'+esc(k)+'</div><div class="v">'+v+'</div></div>'; }
+
+  function open(idx){
+    var p = DATA.products[idx]; if(!p) return;
+    var h = [];
+    h.push('<div class="sheet-top">');
+    h.push(p.image_url ? '<img src="'+esc(p.image_url)+'" alt="">' : '');
+    h.push('<div class="st-meta"><h3>'+esc(p.name)+'</h3>');
+    h.push('<div class="mb-sub">'+esc(SEG[p.segment]||p.segment)+
+           ' &middot; '+esc(FMT[p.fmt]||p.fmt)+'</div>');
+    h.push('<div class="pc-price" style="margin-top:9px"><b>'+money(p.clara_price,p.currency)+
+           '</b><span>Clara listed price</span></div>');
+    h.push('</div><button class="sheet-close" data-close="1" aria-label="Close">&times;</button></div>');
+
+    h.push('<div class="sheet-body">');
+    h.push('<div class="kvgrid">');
+    h.push(kv('Rating', p.rating ? (esc(p.rating)+(p.rating_count? ' from '+esc(p.rating_count)+' reviews':''))
+                                  : '<span class="np">no reviews</span>'));
+    h.push(kv('Assigned competitors', p.assigned_competitors && p.assigned_competitors.length
+              ? esc(p.assigned_competitors.join(', ')) : '<span class="np">none</span>'));
+    h.push(kv('Cheapest comparable rival', p.cheapest_rival
+              ? esc(p.cheapest_rival.brand)+' &middot; '+money(p.cheapest_rival.price,p.cheapest_rival.currency)
+                +(p.cheapest_rival.multiple_of_clara? ' ('+esc(p.cheapest_rival.multiple_of_clara)+'× Clara)':'')
+              : '<span class="np">no comparable price</span>'));
+    h.push(kv('Product page', '<a href="'+esc(p.url)+'" rel="nofollow noopener">open on clarahair.com</a>'));
+    var sp = p.specs||{}; var spk = Object.keys(sp).filter(function(k){return sp[k]!==null&&sp[k]!==false;});
+    if(spk.length) h.push(kv('Published specifications',
+        esc(spk.map(function(k){return (SPEC[k]||k)+': '+sp[k];}).join(' · '))));
+    h.push('</div>');
+
+    if(!p.matches || !p.matches.length){
+      h.push('<div class="empty">'+(p.unassigned
+        ? 'No competitor is assigned to this category, so no comparison was made.'
+        : 'No counterpart was observed at the assigned competitors.')+'</div>');
+    }
+    (p.matches||[]).forEach(function(m){
+      h.push('<div class="mblock '+esc(m.status)+'">');
+      h.push('<h4>'+esc(m.competitor_brand)+' '+pill(m.status)+
+             (m.competitor_url? ' <a href="'+esc(m.competitor_url)+'" rel="nofollow noopener">'+
+              esc(m.competitor_product_name||'open page')+'</a>' : '')+'</h4>');
+      if(m.separately_available===false){
+        h.push('<div class="mb-sub">This item is part of a full system and is not '+
+               'sold separately, so the price shown is for the whole system.</div>');
+      }
+
+      h.push('<div class="kvgrid" style="margin-top:11px">');
+      if(m.price_is_range){
+        h.push(kv('Price range', money(m.price_min,m.competitor_currency)+' – '+money(m.price_max,'')));
+      } else {
+        h.push(kv('Price', money(m.competitor_price,m.competitor_currency)));
+      }
+      if(m.regular_price) h.push(kv('Price before discount', money(m.regular_price,'')));
+      if(m.discount_percent) h.push(kv('Discount', esc(m.discount_percent)+'%'));
+      h.push(kv('Versus Clara', m.same_currency
+        ? (m.delta_pct_vs_clara? esc((Number(m.delta_pct_vs_clara)>0?'higher by ':'lower by ')+
+             String(m.delta_pct_vs_clara).replace('-',''))+'%' : '<span class="np">—</span>')
+          + (m.multiple_of_clara? ' &middot; '+esc(m.multiple_of_clara)+'×' : '')
+        : '<span class="np">different currency — not converted</span>'));
+      h.push(kv('Availability', esc(STOCK[m.availability]||m.availability)));
+      h.push(kv('Current offer', m.promotion_text? esc(m.promotion_text)
+                                                 : '<span class="np">none</span>'));
+      if(m.variant_count) h.push(kv('Options available', esc(m.variant_count)));
+      h.push(kv('Last seen', esc(m.observed_at ? String(m.observed_at).slice(0,10) : null)));
+      h.push('</div>');
+
+      if(m.variants && m.variants.length){
+        h.push('<span class="mtag">Purchasable options</span>');
+        h.push('<table class="vtable"><thead><tr><th>Option</th><th>Price</th>'+
+               '<th>Availability</th></tr></thead><tbody>');
+        m.variants.slice(0,12).forEach(function(v){
+          h.push('<tr><td>'+esc(v.option_key)+'</td><td>'+money(v.price,v.currency)+
+                 '</td><td>'+esc(STOCK[v.availability]||v.availability)+'</td></tr>');
+        });
+        h.push('</tbody></table>');
+      }
+      h.push('</div>');
+    });
+    h.push('</div>');
+
+    sheet.innerHTML = h.join('');
+    mask.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    var c = sheet.querySelector('[data-close]'); if(c) c.focus();
+  }
+  function close(){
+    mask.classList.remove('open');
+    document.body.style.overflow = '';
+    sheet.innerHTML = '';
+  }
+  grid.addEventListener('click', function(e){
+    var card = e.target.closest('.pcard'); if(card) open(Number(card.dataset.idx));
+  });
+  grid.addEventListener('keydown', function(e){
+    if(e.key!=='Enter' && e.key!==' ') return;
+    var card = e.target.closest('.pcard');
+    if(card){ e.preventDefault(); open(Number(card.dataset.idx)); }
+  });
+  mask.addEventListener('click', function(e){
+    if(e.target===mask || e.target.hasAttribute('data-close')) close();
+  });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') close(); });
 
   function apply(){
     var s=seg.value, t=st.value, needle=(q.value||'').toLowerCase().trim(), shown=0;
     var cards = grid.querySelectorAll('.pcard');
     cards.forEach(function(c){
-      var okFam = !s || c.dataset.fam===s;
+      var okSeg = !s || c.dataset.seg===s;
       var okQ = !needle || (c.dataset.search||'').indexOf(needle)>-1;
       var okSt = !t || (c.dataset.statuses||'').split(' ').indexOf(t)>-1;
-      var vis = okFam && okQ && okSt;
+      var vis = okSeg && okQ && okSt;
       c.style.display = vis? '' : 'none';
       if(vis) shown++;
-    });
-    // A family whose every card is filtered out is hidden along with its
-    // heading, and the count beside each heading is recomputed. Otherwise the
-    // number describes what was there on load rather than what is on screen,
-    // and a filter that leaves four empty headings behind reads as breakage.
-    grid.querySelectorAll('.fam').forEach(function(f){
-      var all = f.querySelectorAll('.pcard'), vis = 0;
-      all.forEach(function(c){ if(c.style.display!=='none') vis++; });
-      f.classList.toggle('fam-empty', vis===0);
-      var n = f.querySelector('.fam-h .n');
-      if(n) n.textContent = vis;
     });
     cnt.textContent = shown+' of '+cards.length+' products';
   }
@@ -251,130 +347,95 @@ def render_price_cards(bundle: dict) -> str:
              'price is only compared to Clara\'s when both are in the same currency; '
              'prices in another currency are shown as read, never converted.</p>')
 
-    # Grouped and filtered by FAMILY, not by the old three-way segment. The
-    # segment split (device / haircare / accessory) is a database detail; the
-    # four families are how the business describes what it sells, and a page
-    # organised by anything else makes the reader do the translation.
-    groups = scope.group_by_family(pr["products"])
-    index_of = {pp["product_id"]: i for i, pp in enumerate(pr["products"])}
-
-    # The frame, stated with this page's own counts, so the scope is on screen
-    # rather than inferred from whichever products happen to be present.
-    P.append(ui.frame_strip(
-        counts={f["key"]: len(items) for f, items in groups}))
+    segs = sorted({p["segment"] for p in pr["products"]})
     P.append('<div class="toolbar">')
-    P.append(f'<label for="f-seg">{html.escape("Family")}'
-             f'</label><select id="f-seg">'
-             f'<option value="">{html.escape("all four families")}'
-             f'</option>')
-    for fam, items in groups:
-        P.append(f'<option value="{html.escape(fam["key"])}">'
-                 f'{html.escape(fam["en"])} ({len(items)})</option>')
+    P.append('<label for="f-seg">Segment</label><select id="f-seg">'
+             '<option value="">all</option>')
+    for s in segs:
+        P.append(f'<option value="{html.escape(s)}">'
+                 f'{html.escape(SEG_AR.get(s, s))}</option>')
     P.append('</select>')
-    P.append(f'<label for="f-status">'
-             f'{html.escape("Match status")}</label>'
-             f'<select id="f-status"><option value="">all</option>')
+    P.append('<label for="f-status">Match status</label><select id="f-status">'
+             '<option value="">all</option>')
     for s in STATUS_ORDER:
         P.append(f'<option value="{s}">{html.escape(STATUS_AR.get(s, s))}</option>')
     P.append('</select>')
-    P.append(f'<label for="f-q">{html.escape("Find")}</label>'
-             '<input id="f-q" type="search" '
+    P.append('<label for="f-q">Find</label><input id="f-q" type="search" '
              'placeholder="product or competitor" size="20">')
     P.append('<span class="count" id="f-count"></span></div>')
 
-    P.append('<div id="pgrid">')
-    for fam, items in groups:
-        P.append('<section class="fam" data-fam="%s">' % fam["key"])
-        P.append('<div class="fam-h">'
-                 f'<h2>{html.escape(fam["en"])}</h2>'
-                 f'<span class="n">{len(items)}</span>'
-                 + (f'<span class="sc">{html.escape(fam["en_scope"])}</span>'
-                    if fam.get("en_scope") else "")
+    P.append('<div class="grid" id="pgrid">')
+    for i, p in enumerate(pr["products"]):
+        statuses = " ".join(sorted({m["status"] for m in p["matches"]})) or "unassigned"
+        search = " ".join(filter(None, [
+            p["name"].lower(), p["product_id"].lower(), p["segment"], p["category"],
+            " ".join((m["competitor_brand"] or "").lower() for m in p["matches"]),
+            " ".join((m["competitor_product_name"] or "").lower()
+                     for m in p["matches"]),
+        ]))
+        cd = to_decimal(p["clara_price"])
+        cw = float(cd / biggest * 100) if cd else 0.0
+
+        P.append(f'<button class="pcard" type="button" data-idx="{i}" '
+                 f'data-seg="{html.escape(p["segment"])}" '
+                 f'data-statuses="{html.escape(statuses)}" '
+                 f'data-search="{html.escape(search)}">')
+        P.append('<div class="pc-top">')
+        if p.get("image_url"):
+            P.append(f'<img class="pc-img" src="{html.escape(p["image_url"])}" '
+                     f'alt="" loading="lazy">')
+        else:
+            P.append('<div class="pc-imgph">no image</div>')
+        P.append('<div class="pc-head">')
+        P.append(f'<div class="pc-name">{_e(p["name"])}</div>')
+        P.append(f'<div class="pc-meta">{_e(SEG_AR.get(p["segment"], p["segment"]))} &middot; {_e(FMT_AR.get(p["fmt"], p["fmt"]))}'
+                 + (f' &middot; ★ {_e(p["rating"])}' if p.get("rating") else "")
                  + '</div>')
-        if fam["key"] == "unclassified":
-            P.append('<div class="fam-note">In the catalogue, and matching none '
-                     'of the four families. Shown rather than hidden: a product '
-                     'the frame does not describe is a decision waiting for a '
-                     'person, not a rendering error.</div>')
-        P.append('<div class="grid">')
-        for p in items:
-            i = index_of[p["product_id"]]
-            statuses = " ".join(sorted({m["status"] for m in p["matches"]})) or "unassigned"
-            search = " ".join(filter(None, [
-                p["name"].lower(), p["product_id"].lower(), p["segment"], p["category"],
-                " ".join((m["competitor_brand"] or "").lower() for m in p["matches"]),
-                " ".join((m["competitor_product_name"] or "").lower()
-                         for m in p["matches"]),
-            ]))
-            cd = to_decimal(p["clara_price"])
-            cw = float(cd / biggest * 100) if cd else 0.0
+        P.append('</div></div>')
 
-            P.append(f'<a class="pcard" '
-                     f'href="/product?id={html.escape(p["product_id"])}" '
-                     f'data-fam="{html.escape(fam["key"])}" '
-                     f'data-seg="{html.escape(p["segment"])}" '
-                     f'data-statuses="{html.escape(statuses)}" '
-                     f'data-search="{html.escape(search)}">')
-            P.append('<div class="pc-top">')
-            if p.get("image_url"):
-                P.append(f'<img class="pc-img" src="{html.escape(p["image_url"])}" '
-                         f'alt="" loading="lazy">')
-            else:
-                P.append('<div class="pc-imgph">no image</div>')
-            P.append('<div class="pc-head">')
-            P.append(f'<div class="pc-name">{_e(p["name"])}</div>')
-            P.append(f'<div class="pc-meta">{_e(SEG_AR.get(p["segment"], p["segment"]))} &middot; {_e(FMT_AR.get(p["fmt"], p["fmt"]))}'
-                     + (f' &middot; ★ {_e(p["rating"])}' if p.get("rating") else "")
+        P.append('<div class="pc-price"><b>'
+                 + _money(p["clara_price"], p["currency"]) + '</b>'
+                 + (f'<span>{_e(p["rating_count"])} reviews</span>'
+                    if p.get("rating_count") else "") + '</div>')
+
+        if p["matches"]:
+            best = sorted({m["status"] for m in p["matches"]},
+                          key=lambda s: STATUS_ORDER.index(s)
+                          if s in STATUS_ORDER else 9)
+            P.append('<div class="pc-pills">'
+                     + "".join(_pill(s) for s in best[:3]) + '</div>')
+        else:
+            P.append('<div class="pc-pills">'
+                     + _pill("unassigned" if p["unassigned"] else "no_match")
                      + '</div>')
-            P.append('</div></div>')
 
-            P.append('<div class="pc-price"><b>'
-                     + _money(p["clara_price"], p["currency"]) + '</b>'
-                     + (f'<span>{_e(p["rating_count"])} reviews</span>'
-                        if p.get("rating_count") else "") + '</div>')
+        ch = p.get("cheapest_rival")
+        if p["matches"]:
+            P.append('<div class="pc-rivals">')
+            for m in p["matches"][:3]:
+                price = (_money(m["competitor_price"], m["competitor_currency"])
+                         if m.get("competitor_price") else
+                         '<span class="np">no price</span>')
+                P.append('<div class="pc-rival">'
+                         f'<span class="rb">{_e(m["competitor_brand"])}</span>'
+                         f'<span class="rp">{price}</span></div>')
+            if len(p["matches"]) > 3:
+                P.append(f'<div class="pc-mult">+{len(p["matches"]) - 3} more</div>')
+            if ch and ch.get("multiple_of_clara"):
+                mw = float(to_decimal(ch["price"]) / biggest * 100)
+                P.append(f'<div class="pc-bars">'
+                         f'<div class="pc-bar c"><i style="width:{cw:.1f}%"></i></div>'
+                         f'<div class="pc-bar r"><i style="width:{mw:.1f}%"></i></div></div>')
+                P.append(f'<div class="pc-mult">cheapest rival '
+                         f'{html.escape(ch["multiple_of_clara"])}× Clara</div>')
+            P.append('</div>')
+        else:
+            P.append('<div class="pc-none">'
+                     + ('no competitor assigned to this category'
+                        if p["unassigned"] else 'no counterpart observed') + '</div>')
 
-            if p["matches"]:
-                best = sorted({m["status"] for m in p["matches"]},
-                              key=lambda s: STATUS_ORDER.index(s)
-                              if s in STATUS_ORDER else 9)
-                P.append('<div class="pc-pills">'
-                         + "".join(_pill(s) for s in best[:3]) + '</div>')
-            else:
-                P.append('<div class="pc-pills">'
-                         + _pill("unassigned" if p["unassigned"] else "no_match")
-                         + '</div>')
-
-            ch = p.get("cheapest_rival")
-            if p["matches"]:
-                P.append('<div class="pc-rivals">')
-                for m in p["matches"][:3]:
-                    price = (_money(m["competitor_price"], m["competitor_currency"])
-                             if m.get("competitor_price") else
-                             '<span class="np">no price</span>')
-                    P.append('<div class="pc-rival">'
-                             f'<span class="rb">{_e(m["competitor_brand"])}</span>'
-                             f'<span class="rp">{price}</span></div>')
-                if len(p["matches"]) > 3:
-                    P.append(f'<div class="pc-mult">+{len(p["matches"]) - 3} more</div>')
-                if ch and ch.get("multiple_of_clara"):
-                    mw = float(to_decimal(ch["price"]) / biggest * 100)
-                    P.append(f'<div class="pc-bars">'
-                             f'<div class="pc-bar c"><i style="width:{cw:.1f}%"></i></div>'
-                             f'<div class="pc-bar r"><i style="width:{mw:.1f}%"></i></div></div>')
-                    P.append(f'<div class="pc-mult">cheapest rival '
-                             f'{html.escape(ch["multiple_of_clara"])}× Clara</div>')
-                P.append('</div>')
-            else:
-                P.append('<div class="pc-none">'
-                         + ('no competitor assigned to this category'
-                            if p["unassigned"] else 'no counterpart observed') + '</div>')
-
-            P.append('<span class="pc-open">'
-                     + html.escape("Everything about this product")
-                     + ' &rarr;</span>')
-            P.append('</a>')
-        P.append('</div>')
-        P.append('</section>')
+        P.append('<span class="pc-open">Open for full details</span>')
+        P.append('</button>')
     P.append('</div>')
 
     P.append('<div class="note">')
@@ -386,9 +447,35 @@ def render_price_cards(bundle: dict) -> str:
              f'{html.escape(str(cur))}.')
     P.append('</div></div></section>')
 
-    # No payload and no modal shell. Every field they carried is rendered
-    # server-side on the product page, so shipping the whole catalogue to the
-    # browser to fill a popup is work this page no longer does.
+    # Detail payload, embedded once — narrowed to the fields the UI actually
+    # shows. The extraction method, match score, evidence log and validation
+    # verdict stay in the store for traceability; shipping them to the browser
+    # would only bloat the page with detail this audience does not read.
+    PRODUCT_KEYS = ("product_id", "name", "url", "segment", "category", "fmt",
+                    "clara_price", "currency", "rating", "rating_count",
+                    "image_url", "specs", "assigned_competitors", "match_count",
+                    "cheapest_rival", "unassigned")
+    MATCH_KEYS = ("competitor_key", "competitor_brand", "competitor_product_name",
+                  "competitor_url", "status", "separately_available",
+                  "competitor_price", "competitor_currency", "price_is_range",
+                  "price_min", "price_max", "regular_price", "discount_percent",
+                  "availability", "promotion_text", "variant_count", "variants",
+                  "same_currency", "delta_pct_vs_clara", "multiple_of_clara",
+                  "observed_at", "stale")
+
+    slim = []
+    for prod in pr["products"]:
+        row = {k: prod.get(k) for k in PRODUCT_KEYS}
+        row["matches"] = [{k: m.get(k) for k in MATCH_KEYS}
+                          for m in prod.get("matches", [])]
+        slim.append(row)
+    payload = {"products": slim}
+    blob = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
+    P.append(f'<script>window.__CLARA__={blob};</script>')
+
+    # Modal shell
+    P.append('<div class="mask" id="mask" role="dialog" aria-modal="true" '
+             'aria-label="Product details"><div class="sheet" id="sheet"></div></div>')
     return "\n".join(P)
 
 
@@ -564,23 +651,12 @@ COMP_JS = r"""
     var s=seg.value,t=tier.value,th=threat.value,n=(q.value||'').toLowerCase().trim(),shown=0;
     var all=grid.querySelectorAll('.ccard');
     all.forEach(function(c){
-      // The first filter is the product family the card is filed under, which
-      // is what the sections below are grouped by.
-      var ok = (!s || c.dataset.fam===s)
+      var ok = (!s || (c.dataset.seg||'').split(' ').indexOf(s)>-1)
             && (!t || c.dataset.tier===t)
             && (!th || c.dataset.threat===th)
             && (!n || (c.dataset.search||'').indexOf(n)>-1);
       c.style.display = ok? '' : 'none';
       if(ok) shown++;
-    });
-    // Hide a family heading whose cards are all filtered out, and recount the
-    // rest, so the number beside a heading always describes what is under it.
-    grid.querySelectorAll('.fam').forEach(function(f){
-      var cards=f.querySelectorAll('.ccard'), vis=0;
-      cards.forEach(function(c){ if(c.style.display!=='none') vis++; });
-      f.classList.toggle('fam-empty', vis===0);
-      var lab=f.querySelector('.fam-h .n');
-      if(lab) lab.textContent = vis;
     });
     cnt.textContent = shown+' of '+all.length+' competitors';
   }

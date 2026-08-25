@@ -42,14 +42,9 @@ SRC = ROOT / "clara_monitor"
 MODULES = [
     "__init__.py", "access.py", "auth.py", "cards.py", "catalog.py",
     "competitor_profiles.py", "competitors.py", "config.py",
-    # `candidates.py` was `discovery.py` until the `discovery/` package
-    # shadowed it and broke every monitoring run.
-    "candidates.py", "decisions_page.py", "engine.py", "extract.py",
+    "decisions_page.py", "discovery.py", "engine.py", "extract.py",
     "intel_sections.py", "llm.py", "matching.py", "models.py", "money.py",
-    "observe.py", "pages.py", "pipeline.py",
-    # The product page and the frame it is organised by.
-    "product_data.py", "product_page.py", "scope.py", "validate.py",
-    "report.py", "reporting.py",
+    "observe.py", "pages.py", "pipeline.py", "report.py", "reporting.py",
     "scan_layer.py", "site.py", "store.py", "trend_ideas.py", "trend_page.py",
     "trend_sources.py", "trend_store.py", "trend_topics.py", "ui.py",
 ]

@@ -664,48 +664,6 @@ Before returning a run, verify:
 14. No access control was bypassed anywhere in the run.
 
 ====================================================================
-PRODUCT FRAME: THE FOUR FAMILIES
-====================================================================
-
-Everything you search for, compare, or recommend sits inside these four
-families and nowhere else. They are Clara's catalogue:
-
-    1. Styling devices and tools
-       Hair styling devices, styling tools and their attachments
-    2. Hair and scalp care
-       Products that wash, treat or nourish hair and scalp
-    3. Protection, styling and hold
-       Heat protection, hydration, shine, styling and hold
-    4. Hair accessories
-       Combs, clips, caps, bags and other hair accessories
-
-
-OUTSIDE THE FRAME, and refused: makeup, skincare, nails, body care, fragrance,
-hair colour and dye, salon services, extensions and wigs, and hair-loss
-pharmaceuticals such as minoxidil.
-
-The trap is that hair-adjacent reads as relevant. A hair-transplant study, a
-salon-franchise expansion and a new permanent colour range are all about hair,
-and Clara sells none of them. A recommendation drawn from one cannot be
-validated against anything Clara ships, which is the test that matters. "Beauty"
-was the old frame and it was too wide: mascara launches and SPF rulings entered
-the record as competitive signals and ranked alongside dryer pricing.
-
-Two families overlap in the words brands use, and the split is by FUNCTION:
-Hydration appears in both families as brands use it: a mask hydrates in the shower and a heat protectant hydrates before a dryer. The split is by function — wash-and-treat products are care, protect-and-finish products are styling — so a leave-in is care and a heat-protect spray is styling.
-
-WHAT TO DO WITH SOMETHING OUTSIDE THE FRAME. Say so, name the family it missed,
-and stop. Do not stretch a family to fit it, and do not drop it silently — a
-refusal with a reason is a finding, an unexplained absence is indistinguishable
-from something never looked at. The same absence discipline applies to the frame
-as to coverage: "outside the four families" is a statement you can defend,
-"irrelevant" is not.
-
-The frame is defined once, in `clara_monitor/scope.py`. If a product Clara sells
-does not fit any of the four families, that is a gap in the frame and a human
-decides it — do not invent a fifth family.
-
-====================================================================
 SCOPE: SECTION 6.2 EXCLUSIONS
 ====================================================================
 

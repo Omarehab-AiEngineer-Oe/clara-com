@@ -102,29 +102,6 @@ def test_shared_css():
         ok(".bx-critical{" not in src,
            f"{Path(page.__file__).name} does not redefine a shared badge")
 
-    # Every rule a module writes has to be in the string that gets served. The
-    # storefront card rules were pasted into intel_sections' module docstring
-    # instead, so that whole section rendered unstyled from the day it was
-    # written and read as bare lines. A docstring cannot be a stylesheet, and
-    # nothing about the file's appearance says so — hence this check.
-    from clara_monitor import intel_sections
-    for mod, css in ((intel_sections, intel_sections.INTEL_CSS),
-                     (ui, ui.SHARED_CSS), (site, site.CSS),
-                     (trend_page, trend_page.CSS)):
-        src = Path(mod.__file__).read_text(encoding="utf-8")
-        doc = mod.__doc__ or ""
-        stranded = sorted(set(re.findall(r"^\.([a-z][a-z0-9-]*)\{", doc,
-                                         re.M)))
-        name = Path(mod.__file__).name
-        ok(not stranded,
-           f"{name} defines no CSS rule inside its docstring"
-           + ("" if not stranded else f" — stranded: {stranded}"))
-
-    # and the selectors the storefront cards actually use are served
-    for sel in (".swcard{", ".swgrid{", ".swo-word{", ".swmech{", ".swo-flag{"):
-        ok(sel in intel_sections.INTEL_CSS,
-           f"storefront cards are styled: {sel}")
-
 
 def test_components():
     section("components")
@@ -291,13 +268,6 @@ if __name__ == "__main__":
     test_shared_css()
     test_components()
     test_degrades_honestly()
-
-    # `_bundle()` imports serve, which replaces sys.stdout. The wrapper being
-    # displaced is then collected with its buffer unflushed, so everything the
-    # five tests above printed disappeared — 40 of the checks ran silently and
-    # only the summary line showed they had happened at all. A failure in any of
-    # them would have printed nothing.
-    sys.stdout.flush()
 
     try:
         b = _bundle()

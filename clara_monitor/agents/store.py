@@ -146,85 +146,6 @@ CREATE TABLE IF NOT EXISTS intel_cycle (
 """
 
 
-
-# --------------------------------------------------------------------------
-# product names must survive the trip
-# --------------------------------------------------------------------------
-# One Clara product is named in Arabic, and decision text written by the
-# intelligence cycle was found carrying a damaged copy of it: four letters
-# substituted, everything else intact. The catalogue row and every other output
-# were clean, so the damage happens somewhere on the way into this table.
-#
-# The cause is not found. The correct value is, though: a damaged copy is an
-# 80%-plus character match to a catalogue name of the same length, which makes
-# the original unambiguous. So the name is checked here, against the catalogue,
-# at the moment it is written — and repaired rather than stored wrong.
-#
-# This is a guard, not a fix. It is the same reasoning `validate.py` applies to
-# stale notes: where a value can be checked against a source of truth, check it
-# there rather than trusting the path it arrived by.
-
-_MIN_MATCH = 0.70
-
-
-def _arabic(text: str) -> bool:
-    return any("\u0600" <= c <= "\u06ff" for c in text or "")
-
-
-def _catalogue_names() -> list[str]:
-    """Arabic-named products, loaded once and cached on the function."""
-    cached = getattr(_catalogue_names, "_cache", None)
-    if cached is not None:
-        return cached
-    try:
-        from ..catalog import load_from_seed
-        names = [p.name for p in load_from_seed() if _arabic(p.name)]
-    except Exception:                                     # noqa: BLE001
-        names = []
-    _catalogue_names._cache = names
-    return names
-
-
-def _runs(text: str) -> list[str]:
-    """Maximal Arabic runs, spaces included, so a whole name comes out whole."""
-    out, cur = [], []
-    for ch in text or "":
-        if "\u0600" <= ch <= "\u06ff" or (cur and ch == " "):
-            cur.append(ch)
-        elif cur:
-            out.append("".join(cur))
-            cur = []
-    if cur:
-        out.append("".join(cur))
-    return out
-
-
-def repair_names(text: str) -> tuple[str, list[str]]:
-    """Replace any damaged copy of a catalogue name with the real one."""
-    if not text or not _arabic(text):
-        return text, []
-    names = _catalogue_names()
-    if not names:
-        return text, []
-    fixed, notes = text, []
-    for run in _runs(text):
-        stripped = run.strip()
-        if len(stripped) < 10 or any(stripped in n for n in names):
-            continue
-        best, score = None, 0.0
-        for n in names:
-            if abs(len(stripped) - len(n)) > 2:
-                continue
-            same = sum(1 for a, b in zip(stripped, n) if a == b)
-            r = same / max(len(stripped), len(n))
-            if r > score:
-                best, score = n, r
-        if best and _MIN_MATCH <= score < 1.0:
-            fixed = fixed.replace(stripped, best)
-            notes.append(f"product name repaired from a {score:.0%} match to "
-                         f"the catalogue")
-    return fixed, notes
-
 def _j(value) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
@@ -415,16 +336,6 @@ class IntelStore:
 
     def add_action(self, cycle_id: str, a) -> None:
         d = a.to_dict() if hasattr(a, "to_dict") else dict(a)
-        # The one writer where damaged product names were found. Checked against
-        # the catalogue here rather than trusted from upstream.
-        for key in ("action", "because", "expected_outcome"):
-            if d.get(key):
-                fixed, notes = repair_names(d[key])
-                if notes:
-                    d[key] = fixed
-                    d.setdefault("warnings", [])
-                    if isinstance(d["warnings"], list):
-                        d["warnings"].extend(notes)
         self.db.execute(
             """INSERT INTO intel_action
                (cycle_id,entity,owner,urgency,action,action_json)

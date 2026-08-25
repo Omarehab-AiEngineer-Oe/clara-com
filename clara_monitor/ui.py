@@ -161,30 +161,6 @@ SHARED_CSS = """
 .lose-v{color:var(--bad);font-weight:650}
 .flat-v{color:var(--ink3)}
 .na-v{color:var(--ink4);font-style:italic}
-
-/* ---------- the product frame, stated on the page ----------
-   Every page is scoped to the same four families, and a reader who cannot see
-   the scope has to infer it from what happens to be present. `<details>` so it
-   is one line closed and the whole frame open, with no scripting. */
-.frame{border:1px solid var(--line);border-radius:9px;background:var(--card);
-  margin:0 0 18px;overflow:hidden}
-.frame>summary{cursor:pointer;list-style:none;padding:11px 14px;
-  display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12.5px}
-.frame>summary::-webkit-details-marker{display:none}
-.frame>summary::after{content:"\203A";margin-inline-start:auto;
-  color:var(--ink4);font-size:15px;transition:transform .12s}
-.frame[open]>summary::after{transform:rotate(90deg)}
-.frame>summary b{font-size:12.5px;font-weight:680}
-.frame>summary .fr-c{color:var(--ink3)}
-.frame .fr-body{padding:0 14px 14px;border-top:1px solid var(--line)}
-.frame ol{margin:12px 0 0;padding-inline-start:20px}
-.frame li{font-size:12.5px;line-height:1.65;margin-bottom:7px;color:var(--ink2)}
-.frame li b{font-weight:650;color:var(--ink)}
-.frame li span{color:var(--ink3)}
-.frame .fr-out{margin-top:12px;font-size:12px;line-height:1.65;
-  color:var(--ink3);background:var(--card2);border:1px solid var(--line2);
-  border-radius:7px;padding:10px 12px}
-.frame .fr-out b{color:var(--ink2)}
 """
 
 
@@ -256,46 +232,6 @@ def section_head(title: str, meta: str = "", lede: str = "") -> str:
     P.append('</div>')
     if lede:
         P.append(f'<p class="sec-lede">{e(lede)}</p>')
-    return "".join(P)
-
-
-def frame_strip(*, counts: dict | None = None) -> str:
-    """The four families, on the page, collapsed to one line.
-
-    Stated rather than implied. Every page here is scoped to the same frame, and
-    a reader who cannot see the scope has to infer it from whatever happens to be
-    on screen — which is exactly how "beauty" survived as the working scope long
-    after it had stopped being the right one.
-
-    `counts` optionally maps a family key to how many items this page holds for
-    it, so the strip doubles as a contents line. A family with a count of zero is
-    still listed: the frame does not shrink because a page is empty.
-    """
-    from . import scope
-
-    total = sum((counts or {}).values()) if counts else 0
-    P = ['<details class="frame">']
-    P.append('<summary><b>The product frame</b>'
-             '<span class="fr-c">Four families &mdash; everything on this page '
-             'sits inside them'
-             + (f' &middot; {total} item(s) here' if counts else '')
-             + '</span></summary>')
-    P.append('<div class="fr-body"><ol>')
-    for f in scope.FAMILIES:
-        n = (counts or {}).get(f["key"])
-        P.append(f'<li><b>{e(f["en"])}</b>'
-                 + (f' <span>({n})</span>' if counts else '')
-                 + f'<br><span>{e(f["en_scope"])}</span></li>')
-    P.append('</ol>')
-    P.append('<div class="fr-out"><b>Outside the frame:</b> makeup, skincare, '
-             'nails, body care, fragrance, hair colour, salon services, '
-             'extensions and wigs, and hair-loss pharmaceuticals.<br>'
-             'Hair-adjacent is not in frame. A transplant study and a colour '
-             'launch are both about hair, and Clara sells neither, so no '
-             'recommendation drawn from them could be validated against '
-             'anything Clara ships. Anything refused is refused with its reason '
-             'recorded, never dropped silently.</div>')
-    P.append('</div></details>')
     return "".join(P)
 
 

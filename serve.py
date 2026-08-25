@@ -36,8 +36,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 from clara_monitor import (
-    catalog, competitors as comp, decisions_page,
-    pages, reporting,
+    catalog, competitors as comp, decisions_page, pages, reporting,
     site, trend_page, trend_store,
 )
 from clara_monitor.auth import Auth, ROLE_ADMIN, ROLE_VIEWER
@@ -198,20 +197,6 @@ def build_intel(cycle: str | None = None) -> dict:
         store.close()
 
 
-def render_product(user: dict, product_id: str) -> bytes:
-    """One product page, in the same design layer and under the same livebar."""
-    from clara_monitor import product_data, product_page
-
-    bundle = build_bundle(STATE["run_id"])
-    view = product_data.build(bundle, product_id)
-    html_out = product_page.render(view)
-    html_out = html_out.replace("</style>", BAR_CSS + "</style>", 1)
-    html_out = html_out.replace('<header class="top">',
-                                _bar(user, STATE["run_id"], page="prices")
-                                + '<header class="top">', 1)
-    return (html_out + f"<script>{BAR_JS}</script>").encode("utf-8")
-
-
 def render_decisions(user: dict) -> bytes:
     # The decisions page reads both halves — the price comparison and the
     # trends — because a decision that cannot be traced to the comparison and
@@ -350,15 +335,6 @@ def render_report(user: dict, run_id: str) -> bytes:
     return (html + f"<script>{BAR_JS}</script>").encode("utf-8")
 
 
-def _flash(q: dict):
-    """A message carried across a redirect, in the same shape the pages use."""
-    msg = (q.get("m") or [""])[0]
-    err = (q.get("e") or [""])[0]
-    if err:
-        return ("err", err)
-    return ("ok", msg) if msg else None
-
-
 def _rerun(run_id: str, targets: int, budget: int) -> None:
     from clara_monitor import engine
     with _lock:
@@ -495,16 +471,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(
                     f"could not build the report: {type(ex).__name__}: {ex}".encode(),
                     "text/plain; charset=utf-8", 500)
-        if route == "/product":
-            try:
-                return self._send(
-                    render_product(user, (q.get("id") or [""])[0]),
-                    "text/html; charset=utf-8")
-            except Exception as ex:
-                return self._send(
-                    f"could not build the product page: "
-                    f"{type(ex).__name__}: {ex}".encode(),
-                    "text/plain; charset=utf-8", 500)
         if route == "/trends":
             try:
                 return self._send(render_trends(user), "text/html; charset=utf-8")
@@ -605,6 +571,7 @@ class Handler(BaseHTTPRequestHandler):
                                  daemon=True).start()
             return self._redirect("/")
 
+        # ---------- admin ----------
         if route.startswith("/admin"):
             if not user["is_admin"]:
                 return self._html("<p>This page is for admins only.</p>", 403)

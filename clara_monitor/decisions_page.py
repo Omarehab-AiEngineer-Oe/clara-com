@@ -34,8 +34,7 @@ import html
 
 from . import intel_sections as isec, ui
 from .ui import (IMPACT_LABEL, IMPACT_ORDER, URGENCY_LABEL, badge, crosslink,
-                 crosslinks, e, frame_strip, insight, metric, metrics, nothing,
-                 section_head)
+                 crosslinks, e, insight, metric, metrics, nothing, section_head)
 
 # How many decisions get the hero treatment. Deliberately small.
 HERO_COUNT = 3
@@ -268,13 +267,7 @@ def _groups(items: list) -> str:
                 + '</div></section>')
 
     rest = items[HERO_COUNT:]
-    P = ['<section class="sec"><div class="wrap">']
-    # Decisions are grouped by urgency, which is the right axis here — a
-    # decision is acted on by when it has to be made, not by which shelf it
-    # belongs to. The frame is still stated, because a decision about something
-    # outside it should not have reached this page at all.
-    P.append(frame_strip())
-    P.append('</div></section>')
+    P = []
     for u in ("now", "this_week", "this_month", "watch"):
         rows = [i for i in rest if i["urgency"] == u]
         if not rows:

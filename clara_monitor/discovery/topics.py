@@ -47,7 +47,7 @@ import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
-from .. import scope, trend_sources as ts
+from .. import trend_sources as ts
 from .config import ACTIVE, CANDIDATE, MERGED, REJECTED, VALIDATED, DiscoveryConfig
 
 # Words that carry no subject. Deliberately long: a cluster keyed on "best" or
@@ -119,63 +119,59 @@ def phrases(tokens: list[str]) -> list[str]:
     return out
 
 
-# The subject gate, and the strictest one in the system. A feed earns its place
-# by publishing about the frame sometimes; a *subject* has to be inside the
-# frame, because a subject is what the trends page organises itself around and
-# what a recommendation is eventually hung on.
-#
-# This used to test for "beauty" and that was the wrong question. It admitted
-# retinol, SPF rulings and gel manicures as competitive subjects — all properly
-# about beauty, none of them something Clara sells or can act on. The frame in
-# `scope` is the four product families and nothing else, so that is what is
-# asked here. Both patterns are kept as names so the older callers and the
-# stored rejection reasons still resolve.
-OFF_DOMAIN = scope.COLLISION
-STRICT_BEAUTY = scope.IN_SCOPE
+# Phrases where a beauty word means something else somewhere else. Each one here
+# was observed colliding: "foundation model" is AI, not makeup. Refused outright
+# rather than scored, because no amount of corroboration makes them relevant.
+OFF_DOMAIN = re.compile(
+    r"\b(?:foundation|language|diffusion|base|reward|world|embodied)\s+model"
+    r"|\bmodel\s+(?:training|weights|inference|checkpoint)"
+    r"|\bfoundation\s+(?:models|layer|stone|repair fund)"
+    r"|\bserum\s+(?:antibod|immunoglob|albumin)"
+    r"|\bpalette\s+(?:swap|cleanser api)"
+    r"|\bmask\s+(?:r-?cnn|token)"
+    r"|\bopen[- ]?source|\brobotic|\bhumanoid|\bsemiconductor|\bdatacent"
+    r"|\bfoundry\b|\bchipset\b|\bllm\b|\bgpu\b", re.I)
 
-MIN_BEAUTY_SHARE = scope.MIN_FRAME_SHARE
-MIN_FRAME_SHARE = scope.MIN_FRAME_SHARE
+# A stricter test than the ingest gate: is this article *about* beauty, rather
+# than an article that happens to contain a beauty word?
+STRICT_BEAUTY = re.compile(
+    r"\bbeauty\b|\bcosmetic\w*\b|\bskincare\b|\bskin care\b|\bhaircare\b"
+    r"|\bmakeup\b|\bfragrance\b|\bperfume\b|\bsalon\b|\bmanicure\b"
+    r"|\bshampoo\b|\bconditioner\b|\bmoisturi[sz]er\b|\bsunscreen\b"
+    r"|\bserum\b|\bretinol\b|\bniacinamide\b|\bhyaluronic\b"
+    r"|\bmascara\b|\blipstick\b|\bblush\b|\bbronzer\b|\bconcealer\b"
+    r"|\bhair (?:dryer|colour|color|oil|mask|growth|loss|style|salon)\b"
+    r"|\bsephora\b|\bulta\b|\bl'?or[eé]al\b|\bestee lauder\b|\bshiseido\b"
+    r"|\bolaplex\b|\bdyson\b|\bnykaa\b|\bglossier\b|\bcharlotte tilbury\b"
+    r"|جمال|بشرة|مكياج|عطر|شامبو|صالون", re.I)
+
+MIN_BEAUTY_SHARE = 0.60
 
 
 def beauty_share(signals: list[dict]) -> float:
-    """Share of a cluster whose articles are inside the product frame."""
-    return frame_share(signals)
-
-
-def frame_share(signals: list[dict]) -> float:
-    """Share of a cluster whose articles are inside the product frame."""
+    """Share of a cluster whose articles are actually about beauty."""
     if not signals:
         return 0.0
-    return scope.frame_share(f"{s.get('title', '')} {s.get('summary', '')}"
-                             for s in signals)
+    hits = sum(1 for s in signals
+               if STRICT_BEAUTY.search(f"{s.get('title', '')} "
+                                       f"{s.get('summary', '')}"))
+    return hits / len(signals)
 
 
 def off_domain_reason(phrase: str, signals: list[dict]) -> str:
-    """Why this cluster is not a subject inside the frame, or '' if it is one.
+    """Why this cluster is not a beauty subject, or empty if it is one.
 
     Checked before the evidence gate is even consulted: a cluster about
-    semiconductors does not become relevant by being well corroborated, and
-    neither does a cluster about mascara.
-
-    The phrase is judged first and on its own terms. A phrase naming an excluded
-    category — hair colour, wigs, minoxidil, a salon service — is refused with
-    that category named, because "off domain" on its own would leave a reader
-    unable to tell a mis-scoped subject from a broken one.
+    semiconductors does not become relevant by being well corroborated.
     """
-    if scope.COLLISION.search(phrase):
+    if OFF_DOMAIN.search(phrase):
         return (f"'{phrase}' is a known cross-domain collision — the phrase "
                 f"belongs to another field and shares a word with beauty")
-
-    verdict = scope.relevance(phrase)
-    if verdict["verdict"] == "out_of_scope":
-        return f"'{phrase}' is outside the product frame: {verdict['reason']}"
-
-    share = frame_share(signals)
-    if share < scope.MIN_FRAME_SHARE:
-        return (f"only {share:.0%} of the {len(signals)} clustered article(s) "
-                f"are about the four product families "
-                f"({scope.MIN_FRAME_SHARE:.0%} needed) — the phrase matched "
-                f"inside coverage of something Clara does not sell")
+    share = beauty_share(signals)
+    if share < MIN_BEAUTY_SHARE:
+        return (f"only {share:.0%} of the {len(signals)} clustered article(s) are "
+                f"actually about beauty ({MIN_BEAUTY_SHARE:.0%} needed) — the "
+                f"phrase matched a beauty word inside off-topic coverage")
     return ""
 
 

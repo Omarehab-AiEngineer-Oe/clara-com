@@ -46,7 +46,7 @@ FORMAT_RULES = [
                   r"|فرشاة الشعر الهوائية"),
     ("hot_brush", r"\bhot brush\b|\bthermal brush\b|\bionic (?:hair )?brush\b"
                   r"|\bvolumi[sz]er\b|\bone[- ]step\b"
-                  r"|\bblow[- ]?dry brush\b|فرشاة (?:ال)?حرارية"),
+                  r"|\bblow[- ]?dry brush\b|فرشاة حرارية"),
     ("straightener", r"\bstraightener\b|\bflat iron\b|\bhair straightening iron\b"
                      r"|\bcorrale\b|\bplatinum\+|\bsmart styler\b"
                      r"|\bمملس\b|بلاتينيوم"),
@@ -60,7 +60,7 @@ FORMAT_RULES = [
 # with no assigned rival rather than being force-matched to one.
 CATEGORY_RULES = [
     ("device",    "device",        r"\bdryer\b|\bstraightener\b|\bcurler\b"
-                                   r"|\bstyler\b|\bairglow\b|استشوار|مملس|فرشاة (?:ال)?حرارية"),
+                                   r"|\bstyler\b|\bairglow\b|استشوار|مملس|فرشاة حرارية"),
     ("haircare",  "shampoo",       r"\bshampoo\b|شامبو"),
     ("haircare",  "conditioner",   r"\bconditioner\b|\bleave[- ]?in\b|بلسم"),
     ("haircare",  "mask",          r"\bmask\b|\bmasque\b|ماسك|قناع"),
@@ -68,12 +68,12 @@ CATEGORY_RULES = [
     ("haircare",  "oil",           r"\bhair oil\b|\bargan\b|زيت"),
     ("haircare",  "heat_protect",  r"\bheat protect\w*\b|\bprotection (?:&|and) "
                                    r"(?:hydration|repair)\b|\brepair (?:&|and) protection\b"
-                                   r"|واقي (?:ال)?حراري|الحماية"),
+                                   r"|واقي حراري|الحماية"),
     ("haircare",  "styling_spray", r"\bhairspray\b|\bhair spray\b|\bsetting spray\b"
                                    r"|\bshine spray\b|\bflexible hairspray\b|بخاخ"),
     ("haircare",  "styling_foam",  r"\bfoam\b|\bmousse\b|رغوة"),
     ("haircare",  "styling_wax",   r"\bwax\b|\bpomade\b|\bgloss balm\b|واكس"),
-    ("haircare",  "dry_shampoo",   r"\bdry shampoo\b|شامبو (?:ال)?جاف"),
+    ("haircare",  "dry_shampoo",   r"\bdry shampoo\b|شامبو جاف"),
     ("haircare",  "scalp",         r"\bscalp\b|\bexfoliat\w*\b|\bscrub\b|فروة|مقشر"),
     ("haircare",  "perfume",       r"\bperfume\b|\bfragrance\b|عطر"),
     ("accessory", "bag",           r"\bbag\b|\bpouch\b|\borganizer\b|\bcase\b|حقيبة|شنطة"),
@@ -100,13 +100,6 @@ CONSUMABLE_ONLY = re.compile(
     r"|شامبو|بلسم|ماسك|سيروم|بخاخ|رغوة|واكس|عطر", re.I)
 
 
-# Arabic attaches the definite article to every word of a phrase, so "فرشاة
-# حرارية" and "الفرشاة الحرارية" are the same noun spelled two ways and only the
-# first was matched. A real bundle — a dual thermal brush sold with a protect
-# spray and a shine serum — therefore missed the device test, matched "بخاخ" in
-# the consumable test, and was filed as a serum. Single words need no such care:
-# without a word boundary, "استشوار" already matches inside "الاستشوار".
-#
 # The device nouns, for one question only: "is there an actual appliance named in
 # this name?" It is deliberately not CATEGORY_RULES[0] verbatim — that row has no
 # heated-brush terms, and an "Air Hair Brush & Hair Shine Spray Set" is a device
@@ -116,7 +109,7 @@ DEVICE_NOUN = re.compile(
     r"\bdryer\b|\bstraightener\b|\bcurler\b|\bstyler\b|\bairglow\b"
     r"|\bblow[- ]?dry\w*\b|\bflat iron\b"
     r"|\b(?:air|hot|ionic|thermal|volumiz\w+)\s+(?:hair\s+)?brush\b"
-    r"|استشوار|مملس|فرشاة (?:ال)?حرارية", re.I)
+    r"|استشوار|مملس|فرشاة حرارية", re.I)
 
 
 def _category_from(text: str) -> tuple[str, str] | None:

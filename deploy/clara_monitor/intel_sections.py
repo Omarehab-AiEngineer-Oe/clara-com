@@ -25,60 +25,31 @@ legitimate state for all four and each says so in its own words, because "no
 tasks" and "nobody looked" are opposite facts that a blank space cannot tell
 apart.
 
-The storefront block is styled by `INTEL_CSS` below, like every other block
-here. It was not: the rules had been pasted into this docstring instead, where
-nothing emits them, so that section rendered unstyled for as long as it has
-existed — which is why it read as bare lines rather than as the cards it was
-written to be.
+.swbrand{background:var(--card);border:1px solid var(--line);border-radius:7px;
+         padding:13px 15px}
+.swbrand .sb{font-weight:700;font-size:14px;display:flex;gap:8px;
+             align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+.swbrand .sbn{font-size:11px;color:var(--ink3);font-weight:600}
+.swline{display:flex;gap:9px;align-items:baseline;padding:7px 0;
+        border-top:1px solid var(--line);font-size:12.5px;line-height:1.55}
+.swline:first-of-type{border-top:0}
+.swmech{font-size:9.5px;font-weight:700;letter-spacing:.03em;padding:2px 6px;
+        border-radius:3px;background:var(--card3);color:var(--ink2);
+        white-space:nowrap;flex:0 0 auto}
+.swtext{color:var(--ink);flex:1 1 auto;min-width:0}
+.swline a{font-size:11.5px;color:var(--rival);text-decoration:none;
+          white-space:nowrap;flex:0 0 auto}
+.swline a:hover{text-decoration:underline}
+.swgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+        gap:11px;margin-top:14px}
 """
 
 from __future__ import annotations
 
 import html
-import re
 from datetime import datetime, timezone
 
 INTEL_CSS = """
-/* ---------- storefront advertising, one big card per brand ----------
-   Rows were the wrong shape for this. Each line carries a mechanism set, a
-   confidence, how it was found and when it was last read, and a 12px row can
-   show one of those — so the other four were dropped, including every mechanism
-   after the first. A card has room to keep them. */
-.swcard{background:var(--card);border:1px solid var(--line);border-radius:10px;
-        padding:0;overflow:hidden;display:flex;flex-direction:column}
-.swcard>header{padding:14px 16px 12px;border-bottom:1px solid var(--line);
-        display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
-.swcard .swb{font-weight:700;font-size:16px;letter-spacing:-.01em}
-.swcard .swn{font-size:11px;font-weight:650;color:var(--ink3);
-        background:var(--card2);border:1px solid var(--line2);
-        border-radius:999px;padding:1px 8px;font-variant-numeric:tabular-nums}
-.swcard .swhost{font-size:11.5px;color:var(--rival);text-decoration:none;
-        margin-inline-start:auto;white-space:nowrap}
-.swcard .swhost:hover{text-decoration:underline}
-.swoffers{display:flex;flex-direction:column}
-.swo{padding:12px 16px;border-top:1px solid var(--line)}
-.swo:first-child{border-top:0}
-.swo-mechs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
-.swmech{font-size:9.5px;font-weight:700;letter-spacing:.03em;padding:2px 6px;
-        border-radius:3px;background:var(--card3);color:var(--ink2);
-        white-space:nowrap}
-.swmech.cur{background:var(--clara-wash);color:var(--clara);
-        border:1px solid var(--clara)}
-.swo-word{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink);
-        overflow-wrap:anywhere}
-.swo-word q{quotes:"\201C" "\201D"}
-.swo-flag{margin-top:7px;font-size:11.5px;line-height:1.55;color:var(--ink3);
-        background:var(--card2);border:1px solid var(--line2);
-        border-radius:6px;padding:7px 9px}
-.swo-foot{margin-top:9px;font-size:11px;color:var(--ink4);display:flex;
-        flex-wrap:wrap;gap:4px 10px;align-items:baseline}
-.swo-foot b{color:var(--ink3);font-weight:600}
-.swo-more{padding:11px 16px;border-top:1px solid var(--line);font-size:12px;
-        color:var(--ink3)}
-.swgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));
-        gap:13px;margin-top:14px}
-@media (max-width:620px){.swgrid{grid-template-columns:1fr}}
-
 .isec{padding:34px 0;border-top:1px solid var(--line)}
 .iwrap{max-width:1220px;margin:0 auto;padding:0 22px}
 .updated{font-size:11.5px;color:var(--ink3);white-space:nowrap}
@@ -662,86 +633,6 @@ def live_offers(bundle: dict) -> str:
     return "\n".join(P)
 
 
-# A wording this long stopped being an offer and became the page. The sweep reads
-# promotional text off a storefront and sometimes takes the navigation with it —
-# 9 of 45 lines in the current sweep are that. Truncating quietly would dress a
-# menu up as a promotion, so the length is stated and the reason given.
-DUMP_CHARS = 110
-PRICE_SIGNAL = re.compile(r"\d+\s*%|\bsar\b|\baed\b|\busd\b|\bgbp\b"
-                          r"|\bfree\b|\boff\b|\bsave\b|\bbogo\b", re.I)
-
-
-def _wording_flag(text: str) -> str:
-    """Why this wording should not be read as a promotion, or ''."""
-    text = text or ""
-    if len(text) <= DUMP_CHARS:
-        return ""
-    if PRICE_SIGNAL.search(text):
-        return (f"{len(text)} characters — long for a banner, but it names a "
-                f"price or a saving, so it is shown as read")
-    return (f"{len(text)} characters and no price, percentage or saving in it. "
-            f"This is the storefront's navigation caught by the text reader, "
-            f"not an offer. It is kept because the sweep did read it, and "
-            f"labelled because a shortened version would look like a promotion.")
-
-
-def _storefront_card(brand: str, offers: list) -> str:
-    """One brand's storefront advertising, as a card rather than a row.
-
-    Every mechanism is shown, not just the first. A brand advertising a bundle
-    with a gift, a coupon, installments, free shipping and a clearance was
-    rendering as "bundle" — the row had space for one chip, so five facts were
-    dropped at the point of display and no one reading the page could tell.
-    """
-    P = ['<article class="swcard">']
-    host = (offers[0].get("url") or "") if offers else ""
-    P.append('<header>')
-    P.append(f'<span class="swb">{_e(brand)}</span>')
-    P.append(f'<span class="swn">{len(offers)}</span>')
-    if host:
-        P.append(f'<a class="swhost" href="{_e(host)}" '
-                 f'rel="nofollow noopener">storefront &nearr;</a>')
-    P.append('</header>')
-
-    P.append('<div class="swoffers">')
-    for o in offers[:4]:
-        P.append('<div class="swo">')
-        mechs = [m.strip() for m in (o.get("mechanism") or "").split(",")
-                 if m.strip()]
-        P.append('<div class="swo-mechs">')
-        for m in mechs or ["offer"]:
-            P.append(f'<span class="swmech">{_e(m.replace("_", " "))}</span>')
-        if o.get("currency"):
-            P.append(f'<span class="swmech cur">{_e(o["currency"])}</span>')
-        P.append('</div>')
-
-        wording = (o.get("wording") or "").strip()
-        flag = _wording_flag(wording)
-        shown = wording if len(wording) <= 260 else wording[:257] + "\u2026"
-        P.append(f'<p class="swo-word"><q>{_e(shown)}</q></p>')
-        if flag:
-            P.append(f'<div class="swo-flag">{_e(flag)}</div>')
-
-        P.append('<div class="swo-foot">')
-        P.append(f'<span><b>read via</b> {_e(o.get("via"))}</span>')
-        if o.get("confidence"):
-            P.append(f'<span><b>confidence</b> {_e(o["confidence"].lower())}'
-                     f'</span>')
-        if o.get("status"):
-            P.append(f'<span><b>status</b> {_e(o["status"].lower())}</span>')
-        P.append(f'<span>{updated(o.get("last_seen_at"), "read")}</span>')
-        P.append('</div>')
-        P.append('</div>')
-    P.append('</div>')
-
-    if len(offers) > 4:
-        P.append(f'<div class="swo-more">and {len(offers) - 4} further line(s) '
-                 f'on this storefront &mdash; every one of them is in '
-                 f'<code>/status.json</code></div>')
-    P.append('</article>')
-    return "".join(P)
-
-
 def _storefront_offers(bundle: dict) -> str:
     """What each brand is advertising on its own front page.
 
@@ -780,30 +671,28 @@ def _storefront_offers(bundle: dict) -> str:
              f'disappeared from a readable page; {c.get("unknown", 0)} could not '
              f'be re-checked.</div>')
 
-    # Grouped by the product family each brand competes in, then a big card
-    # per brand. The families come from the assignment tables, so a brand that
-    # sells nothing in the frame is filed as unclassified rather than dropped.
-    from . import competitors as _comp, scope
-
-    brands = [{"brand": b, "offers": o,
-               "family": _comp.primary_family(
-                   (o[0].get("competitor_key") or "") if o else "")}
-              for b, o in by_brand.items()]
-    brands.sort(key=lambda r: (-len(r["offers"]), r["brand"]))
-    groups = scope.group_by_family(brands, key=lambda r: r["family"])
-
-    for fam, rows in groups:
-        P.append(f'<section class="fam" data-fam="{_e(fam["key"])}">')
-        P.append('<div class="fam-h">'
-                 f'<h2>{_e(fam["en"])}</h2>'
-                 f'<span class="n">{len(rows)}</span>'
-                 f'<span class="sc">'
-                 f'{sum(len(r["offers"]) for r in rows)} offer line(s) read '
-                 f'from these storefronts</span></div>')
-        P.append('<div class="swgrid">')
-        for row in rows:
-            P.append(_storefront_card(row["brand"], row["offers"]))
-        P.append('</div></section>')
+    P.append('<div class="swgrid">')
+    for brand, offers in sorted(by_brand.items(),
+                                key=lambda kv: (-len(kv[1]), kv[0])):
+        P.append('<div class="swbrand">')
+        P.append(f'<div class="sb">{_e(brand)}'
+                 f'<span class="sbn">{len(offers)} line(s)</span></div>')
+        for o in offers[:5]:
+            mech = (o.get("mechanism") or "offer").split(",")[0]
+            P.append('<div class="swline">')
+            P.append(f'<span class="swmech">{_e(mech.replace("_", " "))}</span>')
+            P.append(f'<span class="swtext">{_e(o.get("wording"))}</span>')
+            if o.get("url"):
+                P.append(f'<a href="{_e(o["url"])}" rel="nofollow noopener">'
+                         f'open</a>')
+            P.append('</div>')
+        if len(offers) > 5:
+            P.append(f'<div class="swline"><span class="swtext np">and '
+                     f'{len(offers) - 5} more line(s)</span></div>')
+        P.append(f'<div class="swline">{updated(offers[0].get("last_seen_at"), "read")}'
+                 f'</div>')
+        P.append('</div>')
+    P.append('</div>')
 
     mech = sw.get("mechanisms") or {}
     if mech:

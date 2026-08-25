@@ -833,12 +833,7 @@ with no code change.
 Hosted deployment
 ====================================================================
 
-    https://clara-price-match.vercel.app        sign-in required
-
-Credentials are not in this repository and should not be. The first admin is
-created by `serve.py` on an empty database with a random password printed once to
-the console; if it is lost, a new admin is made rather than the old one
-recovered. Existing accounts are managed from `/admin/users`.
+    https://clara-price-match.vercel.app        admin123 / 2030omar
 
 Both pages are served by `deploy/api/index.py` from the same modules and the same
 store as the local server, behind the same sign-in. Nothing on either page is

@@ -61,34 +61,16 @@ RSS = """<?xml version="1.0"?><rss version="2.0"><channel>
 
 ATOM = """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
 <title>Atom Beauty</title>
-<entry><title>Reviewed: six hair dryers under 1,000 riyal</title>
- <link rel="alternate" href="https://atom-beauty.com/1"/>
- <updated>2026-08-19T10:00:00Z</updated>
- <summary>Styling device comparison.</summary></entry>
-<entry><title>Scalp serums explained by a trichologist</title>
- <link rel="alternate" href="https://atom-beauty.com/2"/>
- <updated>2026-08-20T10:00:00Z</updated>
- <summary>Hair and scalp care actives.</summary></entry>
-<entry><title>Nail art for short nails</title>
- <link rel="alternate" href="https://atom-beauty.com/3"/>
- <updated>2026-08-20T11:00:00Z</updated>
- <summary>Manicure ideas.</summary></entry>
-</feed>"""
-
-# Well-formed, published regularly, and about nothing in the catalogue. Under
-# the old beauty frame this registered as a competitor source.
-ATOM_OUT_OF_FRAME = """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
-<title>Skin Weekly</title>
 <entry><title>Retinol explained by a dermatologist</title>
- <link rel="alternate" href="https://skin-only.com/1"/>
+ <link rel="alternate" href="https://atom-beauty.com/1"/>
  <updated>2026-08-19T10:00:00Z</updated>
  <summary>Skincare actives.</summary></entry>
 <entry><title>Fragrance layering guide</title>
- <link rel="alternate" href="https://skin-only.com/2"/>
+ <link rel="alternate" href="https://atom-beauty.com/2"/>
  <updated>2026-08-20T10:00:00Z</updated>
  <summary>Perfume notes.</summary></entry>
 <entry><title>Nail art for short nails</title>
- <link rel="alternate" href="https://skin-only.com/3"/>
+ <link rel="alternate" href="https://atom-beauty.com/3"/>
  <updated>2026-08-20T11:00:00Z</updated>
  <summary>Manicure ideas.</summary></entry>
 </feed>"""
@@ -204,14 +186,6 @@ def test_feeds():
 
     r = _validate(ATOM, "https://atom-beauty.com/atom.xml")
     check("valid Atom accepted", r["ok"] and r["usable"] == 3, r["reason"])
-
-    # A publisher covering hair among other things is a source; a publisher
-    # covering only skincare, fragrance and nails is not, however well formed.
-    r = _validate(ATOM_OUT_OF_FRAME, "https://skin-only.com/atom.xml")
-    check("a well-formed feed outside the frame is refused", not r["ok"],
-          r["reason"][:70])
-    check("and the refusal counts how little of it was in frame",
-          r["relevant"] == 0, str(r["relevant"]))
 
     r = _validate(NOT_A_FEED, "https://x.test/feed")
     check("HTML page rejected", not r["ok"] and "not RSS" in r["reason"])
@@ -420,42 +394,14 @@ def test_topics(tmp: Path):
     check("beauty share of an AI cluster is zero",
           beauty_share(xiaomi) == 0.0, f"{beauty_share(xiaomi):.2f}")
 
-    # A cluster inside the product frame is accepted.
-    in_frame = [
-        _signal("Heat protectant sprays tested on a straightener", "Allure",
-                f"https://b.test/h{i}", i % 3,
-                "Thermal protect spray before a flat iron.")
-        for i in range(6)
-    ]
-    check("an in-frame cluster is not refused",
-          not off_domain_reason("heat protection", in_frame),
-          off_domain_reason("heat protection", in_frame)[:60])
-
-    # Beauty is no longer the frame. This cluster is well corroborated, properly
-    # about beauty, and about nothing Clara sells — it used to be accepted, and
-    # every subject like it filled the trends page with coverage no Clara
-    # product could act on.
-    makeup = [
+    beauty = [
         _signal("The best foundation for oily skin", "Allure",
                 f"https://b.test/f{i}", i % 3, "Makeup base coverage.")
         for i in range(6)
     ]
-    reason = off_domain_reason("foundation coverage", makeup)
-    check("a makeup cluster is refused however well corroborated",
-          bool(reason), reason[:70])
-    check("and the refusal names the frame, not just 'off domain'",
-          "frame" in reason or "families" in reason, reason[:70])
-
-    # Hair-adjacent is not in-frame: all four of these are about hair and none
-    # of them is a product in the catalogue.
-    for phrase, sigs_text in (
-            ("hair colour", "A new permanent hair colour range"),
-            ("hair transplant", "Minoxidil and FUE transplant results"),
-            ("wigs", "Hair extension and wig retailers expand")):
-        adj = [_signal(sigs_text, "Trade", f"https://a.test/{phrase}{i}",
-                       i % 3, sigs_text) for i in range(6)]
-        r = off_domain_reason(phrase, adj)
-        check(f"hair-adjacent subject refused: {phrase}", bool(r), r[:70])
+    check("a genuine beauty cluster is not refused",
+          not off_domain_reason("foundation coverage", beauty),
+          off_domain_reason("foundation coverage", beauty)[:60])
 
     # lifecycle in the store
     store = DiscoveryStore(tmp)

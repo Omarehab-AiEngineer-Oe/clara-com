@@ -34,7 +34,7 @@ import re
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from .. import access, scope, trend_sources as ts
+from .. import access, trend_sources as ts
 from ..agents.trend_collector import parse_feed
 
 # Guesses, tried only after the publisher has been given every chance to declare
@@ -53,18 +53,12 @@ BODY_FEED_RE = re.compile(
     r"""https?://[^\s"'<>]+?(?:/feed/?|/rss(?:\.xml)?|/atom\.xml|feed\.xml)""",
     re.I)
 
-# Whether a feed is a source at all, judged by the product frame: does it
-# publish about the four families?
-#
-# The pattern that used to live here accepted any beauty word — skincare,
-# makeup, nails, SPF, "wellness" — so a pure-skincare feed and a nail-art feed
-# both registered as competitor sources and then filled the corpus with signals
-# nothing in Clara's catalogue can act on.
-#
-# Counted per entry rather than applied all-or-nothing: a trade publication
-# covers hair among other things and is still the right place to read about it.
-# `min_relevant` below is what decides how much coverage makes a source.
-RELEVANT = scope.IN_SCOPE
+# Enough to tell a beauty feed from a well-formed feed about something else.
+RELEVANT = re.compile(
+    r"\bbeauty\b|\bcosmetic\w*\b|\bskincare\b|\bskin care\b|\bhaircare\b"
+    r"|\bhair\b|\bmakeup\b|\bfragrance\b|\bperfume\b|\bnail\w*\b|\bsalon\b"
+    r"|\bserum\b|\bshampoo\b|\bsunscreen\b|\bspf\b|\bretail\w*\b"
+    r"|\bgrooming\b|\bwellness\b|جمال|شعر|بشرة|عناية|مكياج|عطر", re.I)
 
 MAX_PATHS_PER_DOMAIN = 8
 

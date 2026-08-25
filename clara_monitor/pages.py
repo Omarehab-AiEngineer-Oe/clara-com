@@ -80,29 +80,23 @@ def login_page(error: str = "", notice: str = "", next_url: str = "/") -> str:
     P = [_head("Sign in — Clara Report")]
     P.append('<div class="authwrap"><div class="authbox">')
     P.append('<h1>Clara Report</h1>')
-    P.append('<p class="sub">' + html.escape(
-        "Clara prices against the competition. "
-        "For the authorised team only.") + '</p>')
+    P.append('<p class="sub">Clara prices against the competition. '
+             'For the authorised team only.</p>')
     if error:
         P.append(f'<div class="msg err">{html.escape(error)}</div>')
     if notice:
         P.append(f'<div class="msg ok">{html.escape(notice)}</div>')
     P.append('<form method="post" action="/login">')
     P.append(f'<input type="hidden" name="next" value="{html.escape(next_url)}">')
-    P.append('<div class="field"><label for="u">'
-             + html.escape("Username") + '</label>'
+    P.append('<div class="field"><label for="u">Username</label>'
              '<input id="u" name="username" autocomplete="username" required '
              'autofocus></div>')
-    P.append('<div class="field"><label for="p">'
-             + html.escape("Password") + '</label>'
+    P.append('<div class="field"><label for="p">Password</label>'
              '<input id="p" name="password" type="password" '
              'autocomplete="current-password" required></div>')
-    P.append('<button class="btn" type="submit">'
-             + html.escape("Sign in") + '</button>')
+    P.append('<button class="btn" type="submit">Sign in</button>')
     P.append('</form>')
-    P.append('<p class="authfoot">'
-             + html.escape("No account? Ask an admin to add you.")
-             + '</p>')
+    P.append('<p class="authfoot">No account? Ask an admin to add you.</p>')
     P.append('</div></div>')
     return "\n".join(P)
 

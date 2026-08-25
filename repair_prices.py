@@ -29,7 +29,6 @@ import sys
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from clara_monitor.config import DB_PATH
-from clara_monitor import validate
 from clara_monitor.money import discount, parse_price
 
 NOTE = ("price re-derived from the preserved raw text after a price-parsing fix; "
@@ -74,19 +73,9 @@ def rederive(payload: dict) -> tuple[dict, list[str]]:
     cur["discount_percent"] = new_pct
 
     if changes:
-        # The previous parse's notes describe a derivation that has just been
-        # replaced, so they are dropped rather than merged. Keeping them is how
-        # 17 rows came to say "price shown as a range; min and max kept" beside
-        # a single price and two null ends — the note described the very defect
-        # this script had just corrected, and nothing downstream could tell.
-        #
-        # Notes from other extractors (stock wording, images) are about other
-        # fields and are untouched.
-        kept = [w for w in (cur.get("warnings") or [])
-                if not validate.is_price_note(w)]
-        fresh = [n for n in (p.notes if sell_raw else []) if n not in kept]
-        fresh += [n for n in notes if n not in kept and n not in fresh]
-        cur["warnings"] = kept + [NOTE] + fresh
+        w = list(cur.get("warnings") or [])
+        w.append(NOTE)
+        cur["warnings"] = w + [n for n in notes if n not in w]
     return cur, changes
 
 

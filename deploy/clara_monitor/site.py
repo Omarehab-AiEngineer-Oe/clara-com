@@ -23,7 +23,7 @@ import urllib.request
 from decimal import Decimal
 from pathlib import Path
 
-from . import cards, intel_sections, scan_layer, scope, ui
+from . import cards, intel_sections, scan_layer, ui
 from .config import REPORT_DIR
 from .models import AMBIGUOUS, BLOCKED, CONFIRMED, NO_MATCH, PROBABLE
 from .money import to_decimal
@@ -106,8 +106,6 @@ a{color:var(--rival);text-underline-offset:3px}
 a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{
   outline:2px solid var(--clara);outline-offset:2px;border-radius:3px}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-/* Forces LTR on things that are always LTR — a URL, an id, a
-   version string. Deliberately NOT mirrored: that is its job. */
 .ltr{direction:ltr;display:inline-block;text-align:left}
 .eyebrow{font-size:11.5px;letter-spacing:.02em;color:var(--ink3)}
 .np{color:var(--ink4);font-style:italic}
@@ -116,7 +114,7 @@ header.top{background:var(--card);border-bottom:1px solid var(--line);padding:34
 .hrow{display:flex;flex-wrap:wrap;gap:26px;justify-content:space-between;align-items:flex-end}
 .lede{color:var(--ink2);max-width:80ch;margin-top:10px;font-size:15px}
 .runmeta{font-size:12px;color:var(--ink3);display:flex;flex-direction:column;gap:4px;
-         text-align:end}
+         text-align:right}
 .runmeta b{color:var(--ink)}
 
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:1px;
@@ -168,7 +166,7 @@ section+section{border-top:1px solid var(--line)}
           background:var(--card);box-shadow:var(--shadow)}
 table{border-collapse:collapse;width:100%;font-size:13.5px}
 thead th{font-size:11.5px;color:var(--ink3);font-weight:600;background:var(--card2);
-         text-align:start;padding:10px 12px;border-bottom:1px solid var(--line2)}
+         text-align:left;padding:10px 12px;border-bottom:1px solid var(--line2)}
 td{padding:10px 12px;vertical-align:top;border-bottom:1px solid var(--line)}
 tbody tr:last-child td{border-bottom:0}
 td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -182,16 +180,11 @@ footer{border-top:1px solid var(--line);padding:26px 0 44px;font-size:12.5px;col
 footer p+p{margin-top:6px}
 
 /* ---------- competitor cards ---------- */
-.cc-fams{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
-.cc-fams span{font-size:10px;color:var(--ink3);background:var(--card2);
-  border:1px solid var(--line2);border-radius:3px;padding:1px 5px}
-.cc-fams span.on{color:var(--clara);border-color:var(--clara);
-  background:var(--clara-wash);font-weight:650}
 .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
        gap:14px;margin-top:18px}
 .ccard{background:var(--card);border:1px solid var(--line);border-radius:6px;
        box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;
-       gap:11px;cursor:pointer;text-align:start;font:inherit;color:inherit;
+       gap:11px;cursor:pointer;text-align:left;font:inherit;color:inherit;
        transition:border-color .12s}
 .ccard:hover{border-color:var(--clara)}
 .ccard:hover .cc-name{color:var(--clara)}
@@ -293,7 +286,7 @@ footer p+p{margin-top:6px}
 .mlist{margin:7px 0 0;padding-inline-start:18px;font-size:13px;color:var(--ink2)}
 .mlist li{margin:3px 0}
 .vtable{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
-.vtable th,.vtable td{padding:6px 9px;text-align:start;border-bottom:1px solid var(--line)}
+.vtable th,.vtable td{padding:6px 9px;text-align:left;border-bottom:1px solid var(--line)}
 .vtable th{font-size:11px;color:var(--ink3);font-weight:600}
 @media (max-width:620px){
   .mask{padding:0}
@@ -410,28 +403,12 @@ def _competitor_section(b: dict) -> str:
              'discounts — alongside the prices, offers and counterpart products the '
              'Agent actually observed.</p>')
 
-    # Grouped and filtered by product family, not by the three-way segment.
-    # `segments` cannot separate families 2 and 3 — a bond-repair house and a
-    # hairspray house are both "haircare" there — so the family comes from the
-    # assignment tables, which name the exact category.
-    from . import competitors as _comp
-
-    for c in cc["competitors"]:
-        c["families"] = _comp.families_for(c["key"])
-        c["primary_family"] = _comp.primary_family(c["key"])
-    groups = scope.group_by_family(cc["competitors"],
-                                   key=lambda c: c["primary_family"])
-    index_of = {c["key"]: i for i, c in enumerate(cc["competitors"])}
-
-    P.append(ui.frame_strip(
-        counts={f["key"]: len(items) for f, items in groups}))
-
+    segs = sorted({s for c in cc["competitors"] for s in c["segments"]})
     P.append('<div class="toolbar">')
-    P.append('<label for="c-seg">Family</label><select id="c-seg">'
-             '<option value="">all four families</option>')
-    for fam, items in groups:
-        P.append(f'<option value="{html.escape(fam["key"])}">'
-                 f'{html.escape(fam["en"])} ({len(items)})</option>')
+    P.append('<label for="c-seg">Segment</label><select id="c-seg">'
+             '<option value="">all</option>')
+    for s in segs:
+        P.append(f'<option value="{html.escape(s)}">{html.escape(SEGMENT_AR.get(s, s))}</option>')
     P.append('</select>')
     P.append('<label for="c-tier">Price tier</label><select id="c-tier">'
              '<option value="">all</option>')
@@ -447,92 +424,61 @@ def _competitor_section(b: dict) -> str:
              'placeholder="brand name" size="18">')
     P.append('<span class="count" id="c-count"></span></div>')
 
-    P.append('<div id="cgrid">')
-    for fam, items in groups:
-        P.append(f'<section class="fam" data-fam="{html.escape(fam["key"])}">')
-        P.append('<div class="fam-h">'
-                 f'<h2>{html.escape(fam["en"])}</h2>'
-                 f'<span class="n">{len(items)}</span>'
-                 + (f'<span class="sc">{html.escape(fam["en_scope"])}</span>'
-                    if fam.get("en_scope") else "")
-                 + '</div>')
-        if fam["key"] == "unclassified":
-            P.append('<div class="fam-note">Registered as a competitor and '
-                     'assigned to no family. That is a real position, not a '
-                     'gap: a brand can compete for the same spend without '
-                     'selling anything in the four families, and it must not '
-                     'enter a price comparison.</div>')
-        P.append('<div class="cgrid">')
-        for c in items:
-            i = index_of[c["key"]]
-            pr = c["profile"] or {}
-            tier = pr.get("price_tier", "mid_market")
-            threat = pr.get("threat_to_clara", "low")
-            search = " ".join([c["brand"].lower(), c["key"],
-                               (pr.get("positioning") or "")[:80].lower()])
-            P.append(f'<button class="ccard" type="button" data-idx="{i}" '
+    P.append('<div class="cgrid" id="cgrid">')
+    for i, c in enumerate(cc["competitors"]):
+        pr = c["profile"] or {}
+        tier = pr.get("price_tier", "mid_market")
+        threat = pr.get("threat_to_clara", "low")
+        search = " ".join([c["brand"].lower(), c["key"],
+                           (pr.get("positioning") or "")[:80].lower()])
+        P.append(f'<button class="ccard" type="button" data-idx="{i}" '
                  f'data-key="{html.escape(c["key"])}" '
-                 f'data-fam="{html.escape(c["primary_family"])}" '
                  f'data-seg="{html.escape(" ".join(c["segments"]))}" '
-                     f'data-tier="{html.escape(tier)}" '
-                     f'data-threat="{html.escape(threat)}" '
-                     f'data-search="{html.escape(search)}">')
-            P.append('<div class="cc-top"><div>')
-            P.append(f'<div class="cc-name">{e(c["brand"])}</div>')
-            # The entity goes outside e(), not through it — escaping it produced
-            # the literal text "&mdash;" on every competitor without a profile.
-            P.append('<div class="cc-origin">'
-                     + (e(pr["origin"]) if pr.get("origin") else "&mdash;")
-                     + (f' &middot; {e(pr.get("founded"))}' if pr.get("founded") else "")
-                     + '</div>')
-            P.append('</div><div class="cc-pills">')
-            P.append(f'<span class="pill t-{html.escape(tier)}">'
-                     f'{html.escape(TIER_AR.get(tier, tier))}</span>')
-            P.append(f'<span class="pill th-{html.escape(threat)}">'
-                     f'{html.escape(THREAT_AR.get(threat, threat))}</span>')
-            P.append('</div></div>')
+                 f'data-tier="{html.escape(tier)}" '
+                 f'data-threat="{html.escape(threat)}" '
+                 f'data-search="{html.escape(search)}">')
+        P.append('<div class="cc-top"><div>')
+        P.append(f'<div class="cc-name">{e(c["brand"])}</div>')
+        # The entity goes outside e(), not through it — escaping it produced
+        # the literal text "&mdash;" on every competitor without a profile.
+        P.append('<div class="cc-origin">'
+                 + (e(pr["origin"]) if pr.get("origin") else "&mdash;")
+                 + (f' &middot; {e(pr.get("founded"))}' if pr.get("founded") else "")
+                 + '</div>')
+        P.append('</div><div class="cc-pills">')
+        P.append(f'<span class="pill t-{html.escape(tier)}">'
+                 f'{html.escape(TIER_AR.get(tier, tier))}</span>')
+        P.append(f'<span class="pill th-{html.escape(threat)}">'
+                 f'{html.escape(THREAT_AR.get(threat, threat))}</span>')
+        P.append('</div></div>')
 
-            if pr.get("positioning"):
-                P.append(f'<div class="cc-pos">{e(pr["positioning"])}</div>')
+        if pr.get("positioning"):
+            P.append(f'<div class="cc-pos">{e(pr["positioning"])}</div>')
 
-            P.append('<div class="cc-stats">')
-            P.append(f'<div><div class="sv">{c["matched_count"]}</div>'
-                     f'<div class="sk">counterparts</div></div>')
-            P.append(f'<div><div class="sv">{c["offer_count"]}</div>'
-                     f'<div class="sk">live offers</div></div>')
-            P.append(f'<div><div class="sv">{c["pairs"]}</div>'
-                     f'<div class="sk">comparisons</div></div>')
-            P.append('</div>')
-
-            if pr.get("sar_band"):
-                P.append('<div class="cc-band">Typical price band: '
-                         f'<b>SAR {e(pr["sar_band"])}</b></div>')
-            if c.get("observed_price_min"):
-                cur = (c.get("observed_currencies") or ["SAR"])[0]
-                P.append('<div class="cc-band">Actually observed: '
-                         f'<b>{e(c["observed_price_min"])}–{e(c["observed_price_max"])}</b> '
-                         f'{e(cur)}</div>')
-
-            # Which families this rival actually competes in. The section it
-            # sits in is one of them; a brand competing in three is filed under
-            # one and says so here, because the filing is a page decision and
-            # not a claim that the other two are absent.
-            if len(c["families"]) > 1:
-                P.append('<div class="cc-fams">'
-                         + "".join(
-                             f'<span{" class=\"on\"" if f == c["primary_family"] else ""}>'
-                             f'{html.escape(scope.family_label(f, lang="en"))}'
-                             f'</span>' for f in c["families"])
-                         + '</div>')
-
-            if pr.get("known_for"):
-                P.append('<div class="cc-known">'
-                         + "".join(f'<span>{e(k)}</span>' for k in pr["known_for"][:3])
-                         + '</div>')
-            P.append('<span class="cc-open">Open for the full profile</span>')
-            P.append('</button>')
+        P.append('<div class="cc-stats">')
+        P.append(f'<div><div class="sv">{c["matched_count"]}</div>'
+                 f'<div class="sk">counterparts</div></div>')
+        P.append(f'<div><div class="sv">{c["offer_count"]}</div>'
+                 f'<div class="sk">live offers</div></div>')
+        P.append(f'<div><div class="sv">{c["pairs"]}</div>'
+                 f'<div class="sk">comparisons</div></div>')
         P.append('</div>')
-        P.append('</section>')
+
+        if pr.get("sar_band"):
+            P.append('<div class="cc-band">Typical price band: '
+                     f'<b>SAR {e(pr["sar_band"])}</b></div>')
+        if c.get("observed_price_min"):
+            cur = (c.get("observed_currencies") or ["SAR"])[0]
+            P.append('<div class="cc-band">Actually observed: '
+                     f'<b>{e(c["observed_price_min"])}–{e(c["observed_price_max"])}</b> '
+                     f'{e(cur)}</div>')
+
+        if pr.get("known_for"):
+            P.append('<div class="cc-known">'
+                     + "".join(f'<span>{e(k)}</span>' for k in pr["known_for"][:3])
+                     + '</div>')
+        P.append('<span class="cc-open">Open for the full profile</span>')
+        P.append('</button>')
     P.append('</div>')
 
     payload = json.dumps({"competitors": cc["competitors"]},

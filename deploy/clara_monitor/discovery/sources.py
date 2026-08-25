@@ -228,11 +228,7 @@ def score_source(validation: dict, *, existing_titles: set | None = None,
     relevant = validation.get("relevant") or 0
     ratio = (relevant / usable) if usable else 0.0
     parts["relevance"] = min(1.0, ratio * 1.25)
-    # "In frame" rather than "on subject": the test is now the four product
-    # families, so a well-run skincare publication scores zero here and the note
-    # should say why rather than reading like a parsing failure.
-    notes.append(f"{relevant}/{usable} entries inside the product frame "
-                 f"({ratio:.0%})")
+    notes.append(f"{relevant}/{usable} entries on subject ({ratio:.0%})")
 
     newest = validation.get("newest_at") or ""
     try:
