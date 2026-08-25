@@ -1,0 +1,92 @@
+# Continuous deployment to Google Cloud Run.
+#
+# Every push to main or gcp-deploy rebuilds the container (Cloud Build, from
+# the Dockerfile at the repo root) and rolls the Cloud Run service to it.
+# One-time GCP and GitHub setup — service account, bucket, secrets — is
+# documented in deploy/gcp/README.md.
+#
+# Configuration read from the GitHub repository:
+#   secrets.GCP_SA_KEY              required  service-account key JSON
+#   vars.GCP_PROJECT_ID             required  (secrets.GCP_PROJECT_ID also works)
+#   vars.GCP_REGION                 optional  default us-central1
+#   vars.GCP_SERVICE                optional  default clara-monitor
+#   vars.GCP_BUNDLE_BUCKET          optional  GCS bucket holding monitor.sqlite3
+#                                             and intel.json, mounted read-only
+#                                             at deploy/data
+#   secrets.DATABASE_URL            optional  managed Postgres (section 9)
+#   secrets.CLARA_SESSION_SECRET    optional  pins the session HMAC key
+
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main, gcp-deploy]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-gcp
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
+        env:
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+          SERVICE: ${{ vars.GCP_SERVICE || 'clara-monitor' }}
+          BUNDLE_BUCKET: ${{ vars.GCP_BUNDLE_BUCKET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLARA_SESSION_SECRET: ${{ secrets.CLARA_SESSION_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PROJECT_ID" ]; then
+            echo "GCP_PROJECT_ID is not set (repository variable or secret)." >&2
+            exit 1
+          fi
+
+          FLAGS=()
+          if [ -n "$BUNDLE_BUCKET" ]; then
+            FLAGS+=(--add-volume "name=bundle,type=cloud-storage,bucket=${BUNDLE_BUCKET},readonly=true")
+            FLAGS+=(--add-volume-mount "volume=bundle,mount-path=/app/deploy/data")
+          else
+            echo "GCP_BUNDLE_BUCKET is not set; the service will show its setup page" \
+                 "until a bucket with the collection bundle is mounted."
+          fi
+
+          # ^@^ makes @ the list separator, so a DATABASE_URL containing
+          # commas survives intact.
+          ENVS="^@^CLARA_WITH_TRENDS=1"
+          if [ -n "$DATABASE_URL" ]; then
+            ENVS="${ENVS}@DATABASE_URL=${DATABASE_URL}"
+          fi
+          if [ -n "$CLARA_SESSION_SECRET" ]; then
+            ENVS="${ENVS}@CLARA_SESSION_SECRET=${CLARA_SESSION_SECRET}"
+          fi
+
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --source . \
+            --execution-environment gen2 \
+            --allow-unauthenticated \
+            --port 8080 \
+            --update-env-vars "$ENVS" \
+            "${FLAGS[@]}"
+
+          gcloud run services describe "$SERVICE" \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --format 'value(status.url)'
