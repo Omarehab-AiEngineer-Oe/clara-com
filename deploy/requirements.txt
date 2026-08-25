@@ -1,0 +1,9 @@
+# stdlib only: no third-party packages are required to render the report.
+
+# Section 9 requires managed PostgreSQL for a hosted deployment: operational
+# writes must survive instance recycling and redeployment, which an
+# instance-local SQLite file cannot do. The driver is the only dependency the
+# application has, and it is optional — with no DATABASE_URL set the bundle
+# still imports and still renders, and the System page says plainly that
+# storage is not durable.
+psycopg[binary]>=3.1; python_version >= "3.9"

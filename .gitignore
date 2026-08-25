@@ -1,0 +1,24 @@
+# Python build artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Databases. These hold app_user password hashes and live app_session
+# tokens as well as the scraped competitor data, so they are never committed.
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Runtime logs
+*.log
+
+# Scrape artifacts and generated run output
+data/screenshots/
+reports/
+
+# Local environment
+.env
+.env.*

@@ -1,0 +1,67 @@
+{
+  "_note": "Offline discovery hook for SeedSearchProvider. In production this is replaced by CallableSearchProvider backed by the agent's Google Search tool, restricted to each competitor's allowed domains. Every URL here is a candidate to be READ and SCORED, not a pre-decided match.",
+
+  "_by_format": {
+    "multi_styler": {
+      "dyson": [
+        "https://www.dyson.sa/en-SA/airwrap-id-multi-styler-dryer-straight-wavy-prussian-blue-rich-copper",
+        "https://www.dyson.sa/en-SA/airwrap-co-anda2x-multi-styler-straight-wavy-amber-silk"
+      ],
+      "shark": [
+        "https://www.sharkninja.com/shark-flexstyle-air-styling-drying-system/HD430.html",
+        "https://en-saudi.ounass.com/women/designers/shark-beauty"
+      ]
+    },
+    "dryer": {
+      "dyson": [
+        "https://www.dyson.sa/en-SA/supersonic-nural-hair-dryer-blue-topaz",
+        "https://www.dyson.sa/en-SA/supersonic-nural-hair-dryer-patina-topaz"
+      ],
+      "laifen": [
+        "https://laifen.sa/en/products/se",
+        "https://laifen.sa/en/products/laifen-swift-special",
+        "https://laifen.sa/products/laifen-swift"
+      ]
+    },
+    "air_brush": {
+      "dyson": [
+        "https://www.dyson.sa/en-SA/airwrap-id-multi-styler-dryer-straight-wavy-prussian-blue-rich-copper"
+      ],
+      "revlon": [
+        "https://www.noon.com/saudi-en/one-step-hair-dryer-volumizer-2-heat-setting-plus-cool-setting-1100-watts-black-pink/N26454614A/p/"
+      ]
+    },
+    "hot_brush": {
+      "revlon": [
+        "https://www.noon.com/saudi-en/one-step-hair-dryer-volumizer-2-heat-setting-plus-cool-setting-1100-watts-black-pink/N26454614A/p/",
+        "https://niceonesa.com/en/revlon-one-step-hair-dryer-and-volumizer-black-n21179"
+      ],
+      "shark": [
+        "https://www.sharkninja.com/shark-flexstyle-air-styling-drying-system/HD430.html"
+      ]
+    },
+    "auto_curler": {
+      "dyson": [
+        "https://www.dyson.sa/en-SA/airwrap-id-multi-styler-dryer-straight-wavy-prussian-blue-rich-copper"
+      ]
+    },
+    "straightener": {
+      "ghd": [
+        "https://www.ghdhair.com/hair-straighteners/ghd-platinum-plus-black-styler-p-453",
+        "https://niceonesa.com/en/ghd-platinum-professional-smart-styler-white-n21156"
+      ],
+      "dyson": [
+        "https://www.dyson.sa/en-SA/airstrait-hair-straightener-nickel-copper",
+        "https://www.dyson.sa/en-SA/shop/dyson-corrale-straightener"
+      ]
+    },
+    "straightener_brush": {
+      "dyson": [
+        "https://www.dyson.sa/en-SA/airstrait-hair-straightener-nickel-copper"
+      ],
+      "ghd": [
+        "https://www.ghdhair.com/hair-straighteners/ghd-platinum-plus-black-styler-p-453"
+      ]
+    }
+  }
+}

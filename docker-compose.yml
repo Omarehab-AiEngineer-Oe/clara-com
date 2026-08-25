@@ -1,0 +1,42 @@
+# A durable operational store for local work.
+#
+# Section 9 of the price addendum requires operational writes to survive
+# restarts, instance recycling and redeployment. With no DATABASE_URL the
+# application falls back to the local SQLite file and says so on every page —
+# correct for a quick look, but not what the requirement asks for, and not the
+# engine the hosted deployment uses.
+#
+# Running the same PostgreSQL locally is what makes the two paths comparable:
+# the dual-dialect data layer is exercised on the engine that matters before
+# anything is pushed. Two real Postgres-only bugs were found exactly this way.
+#
+#   docker compose up -d
+#   export DATABASE_URL=postgresql://clara:clara_local_dev@127.0.0.1:55432/clara_ops
+#   python ops_import.py          # build the schema and fold in the last scan
+#   python serve.py               # http://127.0.0.1:8770/overview
+#
+# The password here is a local development credential and is deliberately
+# obvious. Never reuse it anywhere reachable from a network.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: clara-pg
+    environment:
+      POSTGRES_USER: clara
+      POSTGRES_PASSWORD: clara_local_dev
+      POSTGRES_DB: clara_ops
+    ports:
+      # 55432 rather than 5432, so this cannot collide with a Postgres the
+      # machine already runs.
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - clara_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clara -d clara_ops"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  clara_pgdata:
