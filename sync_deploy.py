@@ -112,6 +112,17 @@ def sync_code() -> tuple[int, list[str]]:
                 continue
             shutil.copy2(s, pd / f)
             n += 1
+    # `serve.py` itself. The serverless entrypoint subclasses `serve.Handler`
+    # so the hosted site serves the same route table as the local one — the
+    # earlier entrypoint routed through a different application entirely, and
+    # the two drifted into being separate products with shared data.
+    top = ROOT / "serve.py"
+    if top.exists():
+        shutil.copy2(top, DEPLOY / "serve.py")
+        n += 1
+    else:
+        missing.append("serve.py")
+
     if removed:
         print(f"  removed {len(removed)} stale file(s): {', '.join(removed)}")
     if missing:
@@ -146,6 +157,15 @@ def sync_data() -> dict:
         if stale.exists():
             stale.unlink()
     out["db_mb"] = round(dst_db.stat().st_size / 1e6, 2)
+
+    # The catalogue seed. `serve.latest_intel()` loads it when no stored cycle
+    # is found, and the earlier entrypoint never reached that path — so the file
+    # was never bundled and the Decisions page failed on the hosted copy only.
+    for name in ("clara_catalog_seed.json", "candidate_seeds.json"):
+        src = ROOT / "data" / name
+        if src.exists():
+            shutil.copy2(src, DEPLOY / "data" / name)
+            out[name] = round(src.stat().st_size / 1e3, 1)
 
     # The newest completed cycle, by the id the store recorded rather than by
     # filename order — c10 sorts before c2 as a string.
@@ -189,7 +209,11 @@ def probe() -> list[str]:
     `TrendStore.seed()` that had been gone for weeks. Every route, signed in and
     signed out, before anything is pushed.
     """
-    r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_deploy.py"),
+    # `test_deploy_serve.py`, not the older `test_deploy.py`: the entrypoint now
+    # serves serve.py's route table, and the old probe asserted the five-tab
+    # application's routes — which is exactly the drift this replaced.
+    r = subprocess.run([sys.executable,
+                        str(ROOT / "tests" / "test_deploy_serve.py"),
                         str(DEPLOY)], capture_output=True, text=True,
                        env={"PYTHONIOENCODING": "utf-8", "PATH": ""})
     tail = (r.stdout or "").rstrip().splitlines()
